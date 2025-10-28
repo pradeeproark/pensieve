@@ -12,8 +12,10 @@ import click
 
 from pensieve import __version__
 from pensieve.cli_helpers import (
+    load_entry_from_json,
     load_template_from_json,
     parse_field_definition,
+    parse_field_value,
 )
 from pensieve.database import Database, DatabaseError
 from pensieve.migration_runner import MigrationRunner
@@ -261,79 +263,109 @@ def entry() -> None:
 
 @entry.command("create")
 @click.argument("template_name")
-@click.option("--agent", default="claude", help="Agent name")
 @click.option("--project", required=True, help="Project directory path")
-def entry_create(template_name: str, agent: str, project: str) -> None:
-    """Create a journal entry."""
+@click.option("--field", "fields", multiple=True, help="Field value key=value (repeatable)")
+@click.option("--from-file", "file_path", help="Load entry from JSON file")
+def entry_create(
+    template_name: str,
+    project: str,
+    fields: tuple[str, ...],
+    file_path: str | None
+) -> None:
+    """Create a new journal entry (non-interactive).
+
+    Two modes:
+
+    1. Inline field values:
+       pensieve entry create problem_solved --project $(pwd) \\
+         --field problem="Issue description" \\
+         --field solution="How it was fixed"
+
+    2. From JSON file:
+       pensieve entry create problem_solved --project $(pwd) \\
+         --from-file entry.json
+    """
     db = Database()
 
     try:
         # Validate and normalize project path
-        try:
-            normalized_project, warning = validate_project_path(project)
-            if warning:
-                click.echo(warning, err=True)
-        except ValueError as e:
-            click.echo(f"Error: {e}", err=True)
+        normalized_project, warning = validate_project_path(project)
+        if warning:
+            click.echo(warning, err=True)
+
+        # Validate mutual exclusivity
+        if file_path and fields:
+            click.echo("Error: Cannot use both --field and --from-file. Choose one input method.", err=True)
             sys.exit(1)
 
         # Get template
-        tmpl = db.get_template_by_name(template_name)
-
-        if tmpl is None:
+        template = db.get_template_by_name(template_name)
+        if not template:
             click.echo(f"Error: Template '{template_name}' not found", err=True)
+            click.echo("\nAvailable templates:")
+            for tmpl in db.list_templates():
+                click.echo(f"  - {tmpl.name}")
             sys.exit(1)
 
-        click.echo(f"\nCreating entry for template: {tmpl.name}")
-        click.echo(f"Description: {tmpl.description}\n")
+        # Load from file or use inline arguments
+        if file_path:
+            # Load from JSON file
+            try:
+                field_values = load_entry_from_json(file_path)
+            except (FileNotFoundError, ValueError) as e:
+                click.echo(f"Error: {e}", err=True)
+                sys.exit(1)
+        else:
+            # Parse inline field values
+            if not fields:
+                click.echo("Error: No fields provided. Use --field or --from-file", err=True)
+                sys.exit(1)
 
-        # Collect field values
-        field_values: dict[str, Any] = {}
+            field_values = {}
+            try:
+                for field_str in fields:
+                    key, value = parse_field_value(field_str)
+                    field_values[key] = value
+            except ValueError as e:
+                click.echo(f"Error: {e}", err=True)
+                sys.exit(1)
 
-        for field in tmpl.fields:
-            required_str = " (required)" if field.required else " (optional)"
-            click.echo(f"Field: {field.name} [{field.type.value}]{required_str}")
+        # Validate all required fields are present
+        required_fields = {f.name for f in template.fields if f.required}
+        provided_fields = set(field_values.keys())
+        missing_fields = required_fields - provided_fields
 
-            # Show constraints
-            if field.constraints.max_length:
-                click.echo(f"  Max length: {field.constraints.max_length}")
-            if field.constraints.url_schemes:
-                click.echo(f"  Allowed schemes: {', '.join(field.constraints.url_schemes)}")
-            if field.constraints.file_types:
-                click.echo(f"  Allowed types: {', '.join(field.constraints.file_types)}")
-            if field.constraints.auto_now:
-                click.echo(f"  Auto-fill: current time")
+        if missing_fields:
+            click.echo(f"Error: Missing required fields: {', '.join(sorted(missing_fields))}", err=True)
+            click.echo(f"\nRequired fields for template '{template_name}':")
+            for field in template.fields:
+                if field.required:
+                    click.echo(f"  - {field.name}: {field.description}")
+            sys.exit(1)
 
-            # Get value
-            if field.type == FieldType.BOOLEAN:
-                value = click.confirm("Value", default=False)
-            elif field.type == FieldType.TIMESTAMP and field.constraints.auto_now:
-                value = "now"
-                click.echo(f"  → {datetime.utcnow().strftime('%Y-%m-%d %H:%M:%S')}")
-            else:
-                default = "" if field.required else None
-                value = click.prompt("Value", default=default, show_default=False)
-
-                # Allow skipping optional fields
-                if not field.required and value == "":
-                    continue
-
-            field_values[field.name] = value
+        # Get agent name from environment or use default
+        agent = os.environ.get("USER", "unknown")
 
         # Create entry
-        entry_obj = JournalEntry(
-            template_id=tmpl.id,
-            template_version=tmpl.version,
+        entry = JournalEntry(
+            template_id=template.id,
+            template_version=template.version,
             agent=agent,
             project=normalized_project,
             field_values=field_values
         )
 
-        db.create_entry(entry_obj, tmpl)
-        click.echo(f"\n✓ Entry created successfully (ID: {entry_obj.id})")
+        db.create_entry(entry, template)
+        click.echo(f"✓ Created entry: {entry.id}")
+        click.echo(f"  Template: {template_name}")
+        click.echo(f"  Project: {expand_project_path(entry.project)}")
+        click.echo(f"  Fields: {len(field_values)}")
 
-    except (ValidationError, DatabaseError) as e:
-        click.echo(f"\nError: {e}", err=True)
+    except DatabaseError as e:
+        click.echo(f"Error: {e}", err=True)
+        sys.exit(1)
+    except ValidationError as e:
+        click.echo(f"Validation error: {e}", err=True)
         sys.exit(1)
     finally:
         db.close()
