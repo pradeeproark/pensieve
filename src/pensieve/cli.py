@@ -74,6 +74,11 @@ def template_create(
         if warning:
             click.echo(warning, err=True)
 
+        # Validate mutual exclusivity
+        if file_path and fields:
+            click.echo("Error: Cannot use both --field and --from-file. Choose one input method.", err=True)
+            sys.exit(1)
+
         # Load from file or use inline arguments
         if file_path:
             # Load from JSON file
