@@ -1,8 +1,15 @@
 """Tests for CLI helper functions."""
 
+import json
 import pytest
+from pathlib import Path
 
-from pensieve.cli_helpers import parse_field_definition, parse_field_value
+from pensieve.cli_helpers import (
+    load_entry_from_json,
+    load_template_from_json,
+    parse_field_definition,
+    parse_field_value,
+)
 from pensieve.models import FieldType, FieldConstraints
 
 
@@ -106,3 +113,74 @@ class TestParseFieldValue:
         """Test that format without = raises ValueError."""
         with pytest.raises(ValueError, match="Invalid field format"):
             parse_field_value("no_equals_sign")
+
+
+class TestLoadEntryFromJson:
+    """Tests for load_entry_from_json function."""
+
+    def test_load_valid_entry(self, tmp_path: Path) -> None:
+        """Test loading valid entry JSON."""
+        entry_file = tmp_path / "entry.json"
+        entry_file.write_text(json.dumps({
+            "problem": "Test problem",
+            "solution": "Test solution",
+            "learned": "Test learning"
+        }))
+
+        result = load_entry_from_json(str(entry_file))
+        assert result["problem"] == "Test problem"
+        assert result["solution"] == "Test solution"
+        assert result["learned"] == "Test learning"
+
+    def test_file_not_found_raises_error(self) -> None:
+        """Test that missing file raises FileNotFoundError."""
+        with pytest.raises(FileNotFoundError):
+            load_entry_from_json("/nonexistent/file.json")
+
+    def test_invalid_json_raises_error(self, tmp_path: Path) -> None:
+        """Test that invalid JSON raises ValueError."""
+        entry_file = tmp_path / "bad.json"
+        entry_file.write_text("{ invalid json }")
+
+        with pytest.raises(ValueError, match="Invalid JSON"):
+            load_entry_from_json(str(entry_file))
+
+
+class TestLoadTemplateFromJson:
+    """Tests for load_template_from_json function."""
+
+    def test_load_valid_template(self, tmp_path: Path) -> None:
+        """Test loading valid template JSON."""
+        template_file = tmp_path / "template.json"
+        template_file.write_text(json.dumps({
+            "name": "test_template",
+            "description": "Test description",
+            "fields": [
+                {
+                    "name": "field1",
+                    "type": "text",
+                    "required": True,
+                    "constraints": {"max_length": 100},
+                    "description": "First field"
+                }
+            ]
+        }))
+
+        result = load_template_from_json(str(template_file))
+        assert result["name"] == "test_template"
+        assert result["description"] == "Test description"
+        assert len(result["fields"]) == 1
+        assert result["fields"][0]["name"] == "field1"
+
+    def test_file_not_found_raises_error(self) -> None:
+        """Test that missing file raises FileNotFoundError."""
+        with pytest.raises(FileNotFoundError):
+            load_template_from_json("/nonexistent/template.json")
+
+    def test_invalid_json_raises_error(self, tmp_path: Path) -> None:
+        """Test that invalid JSON raises ValueError."""
+        template_file = tmp_path / "bad.json"
+        template_file.write_text("not json")
+
+        with pytest.raises(ValueError, match="Invalid JSON"):
+            load_template_from_json(str(template_file))

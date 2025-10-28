@@ -1,5 +1,9 @@
 """Helper functions for CLI argument parsing."""
 
+import json
+from pathlib import Path
+from typing import Any
+
 from pensieve.models import FieldConstraints, FieldType, TemplateField
 
 
@@ -116,3 +120,87 @@ def parse_field_value(field_str: str) -> tuple[str, str]:
 
     key, value = field_str.split("=", 1)
     return key.strip(), value.strip()
+
+
+def load_entry_from_json(file_path: str) -> dict[str, Any]:
+    """
+    Load entry field values from JSON file.
+
+    Args:
+        file_path: Path to JSON file
+
+    Returns:
+        Dictionary of field values
+
+    Raises:
+        FileNotFoundError: If file doesn't exist
+        ValueError: If JSON is invalid
+    """
+    path = Path(file_path)
+
+    if not path.exists():
+        raise FileNotFoundError(f"File not found: {file_path}")
+
+    try:
+        with open(path, 'r') as f:
+            data = json.load(f)
+    except json.JSONDecodeError as e:
+        raise ValueError(f"Invalid JSON in {file_path}: {e}")
+
+    if not isinstance(data, dict):
+        raise ValueError(f"Expected JSON object in {file_path}, got {type(data).__name__}")
+
+    return data
+
+
+def load_template_from_json(file_path: str) -> dict[str, Any]:
+    """
+    Load template definition from JSON file.
+
+    Expected format:
+    {
+        "name": "template_name",
+        "description": "Template description",
+        "fields": [
+            {
+                "name": "field_name",
+                "type": "text",
+                "required": true,
+                "constraints": {"max_length": 500},
+                "description": "Field description"
+            }
+        ]
+    }
+
+    Args:
+        file_path: Path to JSON file
+
+    Returns:
+        Dictionary with template data
+
+    Raises:
+        FileNotFoundError: If file doesn't exist
+        ValueError: If JSON is invalid or missing required fields
+    """
+    path = Path(file_path)
+
+    if not path.exists():
+        raise FileNotFoundError(f"File not found: {file_path}")
+
+    try:
+        with open(path, 'r') as f:
+            data = json.load(f)
+    except json.JSONDecodeError as e:
+        raise ValueError(f"Invalid JSON in {file_path}: {e}")
+
+    # Validate required fields
+    if not isinstance(data, dict):
+        raise ValueError(f"Expected JSON object in {file_path}")
+
+    if "name" not in data:
+        raise ValueError(f"Missing required field 'name' in {file_path}")
+
+    if "fields" not in data:
+        raise ValueError(f"Missing required field 'fields' in {file_path}")
+
+    return data
