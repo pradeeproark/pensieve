@@ -11,52 +11,58 @@ class TestParseFieldDefinition:
 
     def test_text_field_with_max_length(self) -> None:
         """Test parsing text field with max_length constraint."""
-        result = parse_field_definition("problem:text:required:max_length=500")
+        result = parse_field_definition("problem:text:required:max_length=500:Description of the problem")
 
         assert result.name == "problem"
         assert result.type == FieldType.TEXT
         assert result.required is True
         assert result.constraints.max_length == 500
+        assert result.description == "Description of the problem"
 
     def test_optional_field_no_constraints(self) -> None:
         """Test parsing optional field without constraints."""
-        result = parse_field_definition("notes:text:optional:")
+        result = parse_field_definition("notes:text:optional::Optional notes")
 
         assert result.name == "notes"
         assert result.type == FieldType.TEXT
         assert result.required is False
+        assert result.description == "Optional notes"
 
     def test_boolean_field(self) -> None:
         """Test parsing boolean field."""
-        result = parse_field_definition("resolved:boolean:required:")
+        result = parse_field_definition("resolved:boolean:required::Whether the issue is resolved")
 
         assert result.name == "resolved"
         assert result.type == FieldType.BOOLEAN
         assert result.required is True
+        assert result.description == "Whether the issue is resolved"
 
     def test_url_field_with_schemes(self) -> None:
         """Test parsing URL field with scheme constraints."""
-        result = parse_field_definition("link:url:optional:url_schemes=http,https")
+        result = parse_field_definition("link:url:optional:url_schemes=http,https:Related URL")
 
         assert result.name == "link"
         assert result.type == FieldType.URL
         assert result.constraints.url_schemes == ["http", "https"]
+        assert result.description == "Related URL"
 
     def test_file_reference_with_types(self) -> None:
         """Test parsing file reference with file type constraints."""
-        result = parse_field_definition("log:file_reference:optional:file_types=.log,.txt")
+        result = parse_field_definition("log:file_reference:optional:file_types=.log,.txt:Log file reference")
 
         assert result.name == "log"
         assert result.type == FieldType.FILE_REFERENCE
         assert result.constraints.file_types == [".log", ".txt"]
+        assert result.description == "Log file reference"
 
     def test_timestamp_with_auto_now(self) -> None:
         """Test parsing timestamp with auto_now constraint."""
-        result = parse_field_definition("created:timestamp:required:auto_now=true")
+        result = parse_field_definition("created:timestamp:required:auto_now=true:Creation timestamp")
 
         assert result.name == "created"
         assert result.type == FieldType.TIMESTAMP
         assert result.constraints.auto_now is True
+        assert result.description == "Creation timestamp"
 
     def test_invalid_format_raises_error(self) -> None:
         """Test that invalid format raises ValueError."""

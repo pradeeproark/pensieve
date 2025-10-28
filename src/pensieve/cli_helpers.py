@@ -7,12 +7,12 @@ def parse_field_definition(field_str: str) -> TemplateField:
     """
     Parse field definition string.
 
-    Format: name:type:required|optional:constraints
+    Format: name:type:required|optional:constraints:description
 
     Examples:
-        "problem:text:required:max_length=500"
-        "url:url:optional:"
-        "created:timestamp:required:auto_now=true"
+        "problem:text:required:max_length=500:Description of the problem"
+        "url:url:optional::Related URL"
+        "created:timestamp:required:auto_now=true:Creation timestamp"
 
     Args:
         field_str: Field definition string
@@ -23,14 +23,14 @@ def parse_field_definition(field_str: str) -> TemplateField:
     Raises:
         ValueError: If format is invalid or type is unknown
     """
-    parts = field_str.split(":", 3)
-    if len(parts) != 4:
+    parts = field_str.split(":", 4)
+    if len(parts) != 5:
         raise ValueError(
             f"Invalid field format: '{field_str}'. "
-            "Expected format: name:type:required|optional:constraints"
+            "Expected format: name:type:required|optional:constraints:description"
         )
 
-    name, type_str, required_str, constraints_str = parts
+    name, type_str, required_str, constraints_str, description = parts
 
     # Parse type
     try:
@@ -51,7 +51,8 @@ def parse_field_definition(field_str: str) -> TemplateField:
         name=name,
         type=field_type,
         required=required,
-        constraints=constraints
+        constraints=constraints,
+        description=description
     )
 
 
