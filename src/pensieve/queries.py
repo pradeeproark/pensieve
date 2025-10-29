@@ -8,7 +8,7 @@ from uuid import UUID
 from dateutil import parser as dateparser
 
 from pensieve.database import Database
-from pensieve.models import JournalEntry
+from pensieve.models import EntryStatus, JournalEntry, LinkType
 
 
 class QueryBuilder:
@@ -160,6 +160,78 @@ class QueryBuilder:
 
         return self
 
+    def by_status(self, status: EntryStatus | str) -> "QueryBuilder":
+        """Filter by entry status.
+
+        Args:
+            status: Entry status (active, deprecated, superseded)
+
+        Returns:
+            Self for chaining
+        """
+        if isinstance(status, str):
+            status = EntryStatus(status)
+        self.where_clauses.append("journal_entries.status = ?")
+        self.params.append(status.value)
+        return self
+
+    def by_tags(self, tags: list[str]) -> "QueryBuilder":
+        """Filter by tags (entries with ANY of these tags).
+
+        Args:
+            tags: List of tags to match
+
+        Returns:
+            Self for chaining
+        """
+        # Build a condition that checks if ANY tag is in the tags JSON array
+        tag_conditions = []
+        for tag in tags:
+            tag_conditions.append("journal_entries.tags LIKE ?")
+            # Match tag in JSON array (e.g., ["tag1", "tag2"])
+            self.params.append(f'%"{tag}"%')
+
+        if tag_conditions:
+            self.where_clauses.append(f"({' OR '.join(tag_conditions)})")
+
+        return self
+
+    def by_linked_to(self, entry_id: UUID | str) -> "QueryBuilder":
+        """Filter entries that link TO the specified entry.
+
+        Args:
+            entry_id: Entry UUID
+
+        Returns:
+            Self for chaining
+        """
+        self.where_clauses.append("""
+            journal_entries.id IN (
+                SELECT source_entry_id FROM entry_links
+                WHERE target_entry_id = ?
+            )
+        """)
+        self.params.append(str(entry_id))
+        return self
+
+    def by_linked_from(self, entry_id: UUID | str) -> "QueryBuilder":
+        """Filter entries that are linked FROM the specified entry.
+
+        Args:
+            entry_id: Entry UUID
+
+        Returns:
+            Self for chaining
+        """
+        self.where_clauses.append("""
+            journal_entries.id IN (
+                SELECT target_entry_id FROM entry_links
+                WHERE source_entry_id = ?
+            )
+        """)
+        self.params.append(str(entry_id))
+        return self
+
     def execute(self, limit: int = 50, offset: int = 0) -> list[JournalEntry]:
         """Execute the query and return results.
 
@@ -177,7 +249,7 @@ class QueryBuilder:
 
         # Build and execute the query
         sql = f"""
-            SELECT id, template_id, template_version, agent, project, timestamp
+            SELECT id, template_id, template_version, agent, project, timestamp, status, tags
             FROM journal_entries
             {where_sql}
             ORDER BY timestamp DESC
@@ -218,6 +290,10 @@ def search_entries(
     field_name: str | None = None,
     field_value: Any = None,
     exact: bool = True,
+    status: EntryStatus | str | None = None,
+    tags: list[str] | None = None,
+    linked_to: UUID | str | None = None,
+    linked_from: UUID | str | None = None,
     limit: int = 50,
     offset: int = 0
 ) -> list[JournalEntry]:
@@ -233,6 +309,10 @@ def search_entries(
         field_name: Filter by field name (requires field_value)
         field_value: Filter by field value (requires field_name)
         exact: If True, exact field match. If False, substring match.
+        status: Filter by entry status (active, deprecated, superseded)
+        tags: Filter by tags (entries with ANY of these tags)
+        linked_to: Filter entries that link TO this entry ID
+        linked_from: Filter entries linked FROM this entry ID
         limit: Maximum number of results
         offset: Number of results to skip
 
@@ -255,5 +335,17 @@ def search_entries(
 
     if field_name and field_value is not None:
         query.by_field_value(field_name, field_value, exact)
+
+    if status:
+        query.by_status(status)
+
+    if tags:
+        query.by_tags(tags)
+
+    if linked_to:
+        query.by_linked_to(linked_to)
+
+    if linked_from:
+        query.by_linked_from(linked_from)
 
     return query.execute(limit, offset)

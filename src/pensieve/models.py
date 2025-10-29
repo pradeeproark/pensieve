@@ -18,6 +18,23 @@ class FieldType(str, Enum):
     FILE_REFERENCE = "file_reference"
 
 
+class EntryStatus(str, Enum):
+    """Status of a journal entry."""
+
+    ACTIVE = "active"
+    DEPRECATED = "deprecated"
+    SUPERSEDED = "superseded"
+
+
+class LinkType(str, Enum):
+    """Types of relationships between entries."""
+
+    SUPERSEDES = "supersedes"  # New entry replaces old one
+    RELATES_TO = "relates_to"  # General relationship
+    AUGMENTS = "augments"  # Adds to existing entry
+    DEPRECATES = "deprecates"  # Marks target as obsolete
+
+
 class FieldConstraints(BaseModel):
     """Constraints for template fields."""
 
@@ -81,6 +98,27 @@ class Template(BaseModel):
     model_config = {"extra": "forbid"}
 
 
+class EntryLink(BaseModel):
+    """Link between two journal entries."""
+
+    id: UUID = Field(default_factory=uuid4)
+    source_entry_id: UUID
+    target_entry_id: UUID
+    link_type: LinkType
+    created_at: datetime = Field(default_factory=datetime.utcnow)
+    created_by: str = Field(..., min_length=1, max_length=100)
+
+    @field_validator("target_entry_id")
+    @classmethod
+    def validate_no_self_link(cls, v: UUID, info) -> UUID:
+        """Prevent self-referential links."""
+        if "source_entry_id" in info.data and v == info.data["source_entry_id"]:
+            raise ValueError("Cannot create self-link (source and target are the same)")
+        return v
+
+    model_config = {"extra": "forbid"}
+
+
 class JournalEntry(BaseModel):
     """A journal entry recording an event."""
 
@@ -91,6 +129,30 @@ class JournalEntry(BaseModel):
     project: str = Field(..., min_length=1, max_length=500)
     timestamp: datetime = Field(default_factory=datetime.utcnow)
     field_values: dict[str, Any] = Field(default_factory=dict)
+    status: EntryStatus = Field(default=EntryStatus.ACTIVE)
+    tags: list[str] = Field(default_factory=list)
+    links_from: list[EntryLink] = Field(default_factory=list)  # Links FROM this entry
+    links_to: list[EntryLink] = Field(default_factory=list)  # Links TO this entry
+
+    @field_validator("tags")
+    @classmethod
+    def validate_tags(cls, v: list[str]) -> list[str]:
+        """Validate tags are non-empty and unique."""
+        if not v:
+            return v
+        for tag in v:
+            if not tag or not tag.strip():
+                raise ValueError("Tags must be non-empty strings")
+            if len(tag) > 50:
+                raise ValueError("Tags must be 50 characters or less")
+        # Remove duplicates while preserving order
+        seen = set()
+        unique_tags = []
+        for tag in v:
+            if tag not in seen:
+                seen.add(tag)
+                unique_tags.append(tag)
+        return unique_tags
 
     model_config = {"extra": "forbid"}
 

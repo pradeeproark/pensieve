@@ -10,9 +10,12 @@ from uuid import UUID
 
 from pensieve.migration_runner import MigrationRunner
 from pensieve.models import (
+    EntryLink,
+    EntryStatus,
     FieldConstraints,
     FieldType,
     JournalEntry,
+    LinkType,
     Template,
     TemplateField,
 )
@@ -221,15 +224,17 @@ class Database:
         try:
             # Insert entry
             self.conn.execute("""
-                INSERT INTO journal_entries (id, template_id, template_version, agent, project, timestamp)
-                VALUES (?, ?, ?, ?, ?, ?)
+                INSERT INTO journal_entries (id, template_id, template_version, agent, project, timestamp, status, tags)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?)
             """, (
                 str(entry.id),
                 str(entry.template_id),
                 entry.template_version,
                 entry.agent,
                 entry.project,
-                entry.timestamp.isoformat()
+                entry.timestamp.isoformat(),
+                entry.status.value,
+                json.dumps(entry.tags)
             ))
 
             # Insert field values
@@ -339,7 +344,7 @@ class Database:
             JournalEntry if found, None otherwise
         """
         cursor = self.conn.execute("""
-            SELECT id, template_id, template_version, agent, project, timestamp
+            SELECT id, template_id, template_version, agent, project, timestamp, status, tags
             FROM journal_entries
             WHERE id = ?
         """, (str(entry_id),))
@@ -361,7 +366,7 @@ class Database:
             List of journal entries
         """
         cursor = self.conn.execute("""
-            SELECT id, template_id, template_version, agent, project, timestamp
+            SELECT id, template_id, template_version, agent, project, timestamp, status, tags
             FROM journal_entries
             ORDER BY timestamp DESC
             LIMIT ? OFFSET ?
@@ -403,12 +408,206 @@ class Database:
             elif field_type == FieldType.FILE_REFERENCE:
                 field_values[field_name] = value_row["value_file_path"]
 
+        # Load status and tags
+        status = EntryStatus(row["status"]) if row["status"] else EntryStatus.ACTIVE
+        tags = json.loads(row["tags"]) if row["tags"] else []
+
+        # Load links from and to this entry
+        entry_id = UUID(row["id"])
+        links_from = self._load_links_from(entry_id)
+        links_to = self._load_links_to(entry_id)
+
         return JournalEntry(
-            id=UUID(row["id"]),
+            id=entry_id,
             template_id=UUID(row["template_id"]),
             template_version=row["template_version"],
             agent=row["agent"],
             project=row["project"],
             timestamp=datetime.fromisoformat(row["timestamp"]),
-            field_values=field_values
+            field_values=field_values,
+            status=status,
+            tags=tags,
+            links_from=links_from,
+            links_to=links_to
         )
+
+    def _load_links_from(self, entry_id: UUID) -> list[EntryLink]:
+        """Load all links FROM this entry.
+
+        Args:
+            entry_id: Entry UUID
+
+        Returns:
+            List of EntryLink objects
+        """
+        cursor = self.conn.execute("""
+            SELECT id, source_entry_id, target_entry_id, link_type, created_at, created_by
+            FROM entry_links
+            WHERE source_entry_id = ?
+        """, (str(entry_id),))
+
+        links = []
+        for row in cursor.fetchall():
+            links.append(EntryLink(
+                id=UUID(row["id"]),
+                source_entry_id=UUID(row["source_entry_id"]),
+                target_entry_id=UUID(row["target_entry_id"]),
+                link_type=LinkType(row["link_type"]),
+                created_at=datetime.fromisoformat(row["created_at"]),
+                created_by=row["created_by"]
+            ))
+        return links
+
+    def _load_links_to(self, entry_id: UUID) -> list[EntryLink]:
+        """Load all links TO this entry.
+
+        Args:
+            entry_id: Entry UUID
+
+        Returns:
+            List of EntryLink objects
+        """
+        cursor = self.conn.execute("""
+            SELECT id, source_entry_id, target_entry_id, link_type, created_at, created_by
+            FROM entry_links
+            WHERE target_entry_id = ?
+        """, (str(entry_id),))
+
+        links = []
+        for row in cursor.fetchall():
+            links.append(EntryLink(
+                id=UUID(row["id"]),
+                source_entry_id=UUID(row["source_entry_id"]),
+                target_entry_id=UUID(row["target_entry_id"]),
+                link_type=LinkType(row["link_type"]),
+                created_at=datetime.fromisoformat(row["created_at"]),
+                created_by=row["created_by"]
+            ))
+        return links
+
+    # Entry management operations
+
+    def create_entry_link(self, link: EntryLink) -> None:
+        """Create a link between two entries.
+
+        Args:
+            link: EntryLink to create
+
+        Raises:
+            DatabaseError: If link creation fails
+        """
+        # Verify both entries exist
+        if self.get_entry_by_id(link.source_entry_id) is None:
+            raise DatabaseError(f"Source entry '{link.source_entry_id}' not found")
+        if self.get_entry_by_id(link.target_entry_id) is None:
+            raise DatabaseError(f"Target entry '{link.target_entry_id}' not found")
+
+        try:
+            self.conn.execute("""
+                INSERT INTO entry_links (id, source_entry_id, target_entry_id, link_type, created_at, created_by)
+                VALUES (?, ?, ?, ?, ?, ?)
+            """, (
+                str(link.id),
+                str(link.source_entry_id),
+                str(link.target_entry_id),
+                link.link_type.value,
+                link.created_at.isoformat(),
+                link.created_by
+            ))
+            self.conn.commit()
+        except sqlite3.IntegrityError as e:
+            self.conn.rollback()
+            if "UNIQUE constraint failed" in str(e):
+                raise DatabaseError(
+                    f"Link already exists between {link.source_entry_id} and "
+                    f"{link.target_entry_id} with type '{link.link_type.value}'"
+                ) from e
+            elif "CHECK constraint failed" in str(e):
+                raise DatabaseError("Cannot create self-link (source and target are the same)") from e
+            raise DatabaseError(f"Failed to create link: {e}") from e
+        except Exception as e:
+            self.conn.rollback()
+            raise DatabaseError(f"Failed to create link: {e}") from e
+
+    def update_entry_status(self, entry_id: UUID, status: EntryStatus) -> None:
+        """Update the status of an entry.
+
+        Args:
+            entry_id: Entry UUID
+            status: New status
+
+        Raises:
+            DatabaseError: If entry not found or update fails
+        """
+        if self.get_entry_by_id(entry_id) is None:
+            raise DatabaseError(f"Entry '{entry_id}' not found")
+
+        try:
+            self.conn.execute("""
+                UPDATE journal_entries
+                SET status = ?
+                WHERE id = ?
+            """, (status.value, str(entry_id)))
+            self.conn.commit()
+        except Exception as e:
+            self.conn.rollback()
+            raise DatabaseError(f"Failed to update entry status: {e}") from e
+
+    def add_entry_tags(self, entry_id: UUID, tags_to_add: list[str]) -> None:
+        """Add tags to an entry (idempotent - no duplicates).
+
+        Args:
+            entry_id: Entry UUID
+            tags_to_add: Tags to add
+
+        Raises:
+            DatabaseError: If entry not found or update fails
+        """
+        entry = self.get_entry_by_id(entry_id)
+        if entry is None:
+            raise DatabaseError(f"Entry '{entry_id}' not found")
+
+        # Merge tags (remove duplicates)
+        existing_tags = set(entry.tags)
+        new_tags = existing_tags.union(tags_to_add)
+        updated_tags = sorted(new_tags)  # Sort for consistency
+
+        try:
+            self.conn.execute("""
+                UPDATE journal_entries
+                SET tags = ?
+                WHERE id = ?
+            """, (json.dumps(updated_tags), str(entry_id)))
+            self.conn.commit()
+        except Exception as e:
+            self.conn.rollback()
+            raise DatabaseError(f"Failed to add tags: {e}") from e
+
+    def remove_entry_tags(self, entry_id: UUID, tags_to_remove: list[str]) -> None:
+        """Remove tags from an entry (no-op if tags don't exist).
+
+        Args:
+            entry_id: Entry UUID
+            tags_to_remove: Tags to remove
+
+        Raises:
+            DatabaseError: If entry not found or update fails
+        """
+        entry = self.get_entry_by_id(entry_id)
+        if entry is None:
+            raise DatabaseError(f"Entry '{entry_id}' not found")
+
+        # Remove tags
+        existing_tags = set(entry.tags)
+        updated_tags = sorted(existing_tags - set(tags_to_remove))
+
+        try:
+            self.conn.execute("""
+                UPDATE journal_entries
+                SET tags = ?
+                WHERE id = ?
+            """, (json.dumps(updated_tags), str(entry_id)))
+            self.conn.commit()
+        except Exception as e:
+            self.conn.rollback()
+            raise DatabaseError(f"Failed to remove tags: {e}") from e
