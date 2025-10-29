@@ -29,7 +29,12 @@ from pensieve.models import (
     Template,
     TemplateField,
 )
-from pensieve.path_utils import expand_project_path, normalize_project_search, validate_project_path
+from pensieve.path_utils import (
+    auto_detect_project,
+    expand_project_path,
+    normalize_project_search,
+    validate_project_path,
+)
 from pensieve.queries import search_entries
 from pensieve.validators import ValidationError
 
@@ -52,34 +57,43 @@ def template() -> None:
 
 @template.command("create")
 @click.argument("name")
-@click.option("--project", required=True, help="Project directory path")
+@click.option("--project", required=False, help="Project directory path (auto-detected if omitted)")
 @click.option("--description", default="", help="Template description")
 @click.option("--field", "fields", multiple=True, help="Field definition (repeatable)")
 @click.option("--from-file", "file_path", help="Load template from JSON file")
 def template_create(
     name: str,
-    project: str,
+    project: str | None,
     description: str,
     fields: tuple[str, ...],
     file_path: str | None
 ) -> None:
     """Create a new template (non-interactive).
 
+    Project is auto-detected from git repository root or current directory.
+    Use --project to override.
+
     Two modes:
 
     1. Inline field definitions:
-       pensieve template create my_template --project $(pwd) \\
+       pensieve template create my_template \\
          --description "My template" \\
          --field "name:text:required:max_length=100:Field description" \\
          --field "url:url:optional::Optional URL"
 
     2. From JSON file:
-       pensieve template create my_template --project $(pwd) \\
-         --from-file template.json
+       pensieve template create my_template --from-file template.json
+
+    Override project:
+       pensieve template create my_template --project /custom/path --field "..."
     """
     db = Database()
 
     try:
+        # Auto-detect project if not provided
+        if project is None:
+            project = auto_detect_project()
+
         # Validate and normalize project path
         normalized_project, warning = validate_project_path(project)
         if warning:
@@ -272,31 +286,40 @@ def entry() -> None:
 
 @entry.command("create")
 @click.argument("template_name")
-@click.option("--project", required=True, help="Project directory path")
+@click.option("--project", required=False, help="Project directory path (auto-detected if omitted)")
 @click.option("--field", "fields", multiple=True, help="Field value key=value (repeatable)")
 @click.option("--from-file", "file_path", help="Load entry from JSON file")
 def entry_create(
     template_name: str,
-    project: str,
+    project: str | None,
     fields: tuple[str, ...],
     file_path: str | None
 ) -> None:
     """Create a new journal entry (non-interactive).
 
+    Project is auto-detected from git repository root or current directory.
+    Use --project to override.
+
     Two modes:
 
     1. Inline field values:
-       pensieve entry create problem_solved --project $(pwd) \\
+       pensieve entry create problem_solved \\
          --field problem="Issue description" \\
          --field solution="How it was fixed"
 
     2. From JSON file:
-       pensieve entry create problem_solved --project $(pwd) \\
-         --from-file entry.json
+       pensieve entry create problem_solved --from-file entry.json
+
+    Override project:
+       pensieve entry create problem_solved --project /custom/path --field "..."
     """
     db = Database()
 
     try:
+        # Auto-detect project if not provided
+        if project is None:
+            project = auto_detect_project()
+
         # Validate and normalize project path
         normalized_project, warning = validate_project_path(project)
         if warning:

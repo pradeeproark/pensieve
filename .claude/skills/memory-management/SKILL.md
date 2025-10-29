@@ -52,7 +52,7 @@ Add the following section to your project's `CLAUDE.md` (or `README.md` if you d
 
 **At session start, always:**
 1. Invoke the `memory-management` skill to load best practices
-2. Search for existing memories: `pensieve entry search --project $(pwd)`
+2. Search for existing memories: `pensieve entry search`
 3. Read recent entries to restore context from previous sessions
 
 **During work, record:**
@@ -76,7 +76,7 @@ If you have custom agents (in `.claude/agents/` or similar), add this to their s
 This project uses Pensieve for persistent memory across sessions. At the start of each session:
 
 1. Use the `memory-management` skill
-2. Search for project memories: `pensieve entry search --project $(pwd)`
+2. Search for project memories: `pensieve entry search`
 3. Review relevant memories before starting work
 4. Record new learnings after solving complex problems
 
@@ -122,7 +122,7 @@ When you start working on a project for the first time, create project-specific 
 ### Step 1: Check for Existing Memories
 
 ```bash
-pensieve entry search --project $(pwd)
+pensieve entry search
 ```
 
 If memories exist, read them to understand what past agents learned. Then skip to Part 2.
@@ -135,7 +135,7 @@ Create 3-5 templates based on what will be useful for THIS project. Don't create
 
 **1. problem_solved** - For complex bugs and technical challenges
 ```bash
-pensieve template create --project $(pwd)
+pensieve template create
 
 # When prompted, create fields:
 # - problem (text, required, max 500): What was the issue?
@@ -148,7 +148,7 @@ pensieve template create --project $(pwd)
 
 **2. pattern_discovered** - For useful patterns in the codebase
 ```bash
-pensieve template create --project $(pwd)
+pensieve template create
 
 # Fields:
 # - pattern_name (text, required, max 100): Short name
@@ -160,7 +160,7 @@ pensieve template create --project $(pwd)
 
 **3. workaround_learned** - For tool/library issues and workarounds
 ```bash
-pensieve template create --project $(pwd)
+pensieve template create
 
 # Fields:
 # - issue (text, required, max 300): What doesn't work?
@@ -172,7 +172,7 @@ pensieve template create --project $(pwd)
 
 **4. key_resource** - For important documentation and references
 ```bash
-pensieve template create --project $(pwd)
+pensieve template create
 
 # Fields:
 # - resource_name (text, required, max 100): Name/title
@@ -184,7 +184,7 @@ pensieve template create --project $(pwd)
 
 **5. key_file** - For important files agents should know about
 ```bash
-pensieve template create --project $(pwd)
+pensieve template create
 
 # Fields:
 # - file_path (file_reference, required): Path to file
@@ -200,7 +200,7 @@ After creating templates, record initial project knowledge:
 
 ```bash
 # Use key_file template to document project structure
-pensieve entry create key_file --project $(pwd)
+pensieve entry create key_file
 
 # Example entry:
 # file_path: src/main.py
@@ -234,7 +234,7 @@ Record a memory when you've learned something **non-obvious** that:
 
 **RECORD immediately (memory fades fast):**
 ```bash
-pensieve entry create <template-name> --project $(pwd)
+pensieve entry create <template-name>
 ```
 
 **INCLUDE context (the "why"):**
@@ -445,7 +445,7 @@ Task(
 
   **Your task:**
   1. Extract the key details from the context above
-  2. Run: pensieve entry create problem_solved --project $(pwd) \
+  2. Run: pensieve entry create problem_solved \
        --field "problem=[description]" \
        --field "root_cause=[cause]" \
        --field "solution=[fix]" \
@@ -477,7 +477,7 @@ Task(
 
   **Your task:**
   1. Extract pattern details from context above
-  2. Run: pensieve entry create pattern_discovered --project $(pwd) \
+  2. Run: pensieve entry create pattern_discovered \
        --field "pattern_name=[name]" \
        --field "description=[desc]" \
        --field "location=[file:line]" \
@@ -508,7 +508,7 @@ Task(
 
   **Your task:**
   1. Extract workaround details from context
-  2. Run: pensieve entry create workaround_learned --project $(pwd) \
+  2. Run: pensieve entry create workaround_learned \
        --field "issue=[problem]" \
        --field "workaround=[solution]" \
        --field "why_needed=[cause]" \
@@ -557,7 +557,7 @@ AskUserQuestion(
 **SessionStart Hook Workflow:**
 
 1. Hook fires → You see reminder to retrieve memories
-2. Immediately run: `pensieve entry search --project $(pwd)`
+2. Immediately run: `pensieve entry search`
 3. Read recent entries (spend 2-3 minutes)
 4. Continue with user's task with refreshed context
 
@@ -612,13 +612,13 @@ When a hook reminds you to check for memories:
 
 ```bash
 # See recent memories for context
-pensieve entry search --project $(pwd) --limit 10
+pensieve entry search --limit 10
 
 # Check for specific patterns if relevant
-pensieve entry search --project $(pwd) --template pattern_discovered
+pensieve entry search --template pattern_discovered
 
 # Check for known workarounds
-pensieve entry search --project $(pwd) --template workaround_learned
+pensieve entry search --template workaround_learned
 ```
 
 **Spend 2-3 minutes reading:** This refreshes context and prevents re-discovering solutions.
@@ -629,13 +629,13 @@ pensieve entry search --project $(pwd) --template workaround_learned
 
 ```bash
 # Working on authentication? Check past auth problems
-pensieve entry search --project $(pwd) --field "file_path" --value "auth" --substring
+pensieve entry search --field "file_path" --value "auth" --substring
 
 # Working in specific directory? Check memories mentioning it
-pensieve entry search --project $(pwd) --field "files_changed" --value "src/api" --substring
+pensieve entry search --field "files_changed" --value "src/api" --substring
 
 # Specific error type? Search for it
-pensieve entry search --project $(pwd) --field "problem" --value "timeout" --substring
+pensieve entry search --field "problem" --value "timeout" --substring
 ```
 
 ### When Stuck
@@ -644,13 +644,13 @@ pensieve entry search --project $(pwd) --field "problem" --value "timeout" --sub
 
 ```bash
 # Check workarounds
-pensieve entry search --project $(pwd) --template workaround_learned
+pensieve entry search --template workaround_learned
 
 # Check solved problems
-pensieve entry search --project $(pwd) --template problem_solved
+pensieve entry search --template problem_solved
 
 # Check key resources
-pensieve entry search --project $(pwd) --template key_resource
+pensieve entry search --template key_resource
 ```
 
 **Read the full entries, not just titles.** The "why" and "learned" fields often contain the insight you need.
@@ -661,7 +661,7 @@ pensieve entry search --project $(pwd) --template key_resource
 
 ```bash
 # Review ALL project memories
-pensieve entry list --project $(pwd) --limit 100
+pensieve entry list --limit 100
 
 # Look for patterns across multiple entries
 # Update obsolete workarounds
@@ -677,14 +677,14 @@ pensieve entry list --project $(pwd) --limit 100
 # DON'T delete old entry
 # DO create new entry referencing the old one
 
-pensieve entry create problem_solved --project $(pwd)
+pensieve entry create problem_solved
 # In notes: "This supersedes entry abc123... New approach is more reliable because..."
 ```
 
 **When workarounds become obsolete:**
 ```bash
 # Create entry marking it as resolved
-pensieve entry create workaround_learned --project $(pwd)
+pensieve entry create workaround_learned
 # issue: "OBSOLETE: pytest-cov debugger conflict resolved in pytest-cov 3.0"
 # workaround: "Upgrade to pytest-cov >=3.0, no --no-cov flag needed anymore"
 ```
@@ -705,7 +705,7 @@ Before recording, verify:
 After debugging flow completes:
 ```bash
 # If solution was non-obvious, record it
-pensieve entry create problem_solved --project $(pwd)
+pensieve entry create problem_solved
 ```
 
 ### Works With brainstorming
@@ -713,7 +713,7 @@ pensieve entry create problem_solved --project $(pwd)
 After design is finalized:
 ```bash
 # Record key architectural decisions
-pensieve entry create pattern_discovered --project $(pwd)
+pensieve entry create pattern_discovered
 # pattern_name: "Event sourcing for audit trail"
 # description: "All state changes emit events..."
 ```
@@ -723,7 +723,7 @@ pensieve entry create pattern_discovered --project $(pwd)
 When discovering useful testing patterns:
 ```bash
 # Record testing approaches that work well
-pensieve entry create pattern_discovered --project $(pwd)
+pensieve entry create pattern_discovered
 # pattern_name: "Fixture-based database testing"
 # description: "Use pytest fixtures for test database..."
 ```

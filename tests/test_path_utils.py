@@ -212,3 +212,123 @@ class TestIntegrationScenarios:
         # The key is that "kuberan" or "pensieve" as substrings will still match
         assert "kuberan" in normalized
         assert "pensieve" in normalized
+
+
+class TestFindGitRoot:
+    """Test git root detection."""
+
+    def test_find_git_root_in_repo(self, tmp_path):
+        """Test finding git root when in repo root."""
+        from pensieve.path_utils import find_git_root
+
+        # Create a fake git repo
+        git_dir = tmp_path / ".git"
+        git_dir.mkdir()
+
+        result = find_git_root(str(tmp_path))
+        assert result == str(tmp_path)
+
+    def test_find_git_root_in_subfolder(self, tmp_path):
+        """Test finding git root when in subfolder."""
+        from pensieve.path_utils import find_git_root
+
+        # Create a fake git repo with subfolder
+        git_dir = tmp_path / ".git"
+        git_dir.mkdir()
+        subfolder = tmp_path / "src" / "nested"
+        subfolder.mkdir(parents=True)
+
+        result = find_git_root(str(subfolder))
+        assert result == str(tmp_path)
+
+    def test_find_git_root_not_found(self, tmp_path):
+        """Test when no git root found."""
+        from pensieve.path_utils import find_git_root
+
+        # Create a directory with no .git
+        no_git_dir = tmp_path / "no-repo"
+        no_git_dir.mkdir()
+
+        result = find_git_root(str(no_git_dir))
+        assert result is None
+
+    def test_find_git_root_uses_cwd_by_default(self, tmp_path, monkeypatch):
+        """Test that find_git_root uses current directory when start_path is None."""
+        from pensieve.path_utils import find_git_root
+
+        # Create a fake git repo
+        git_dir = tmp_path / ".git"
+        git_dir.mkdir()
+
+        # Change to that directory
+        monkeypatch.chdir(tmp_path)
+
+        result = find_git_root()
+        assert result == str(tmp_path)
+
+
+class TestAutoDetectProject:
+    """Test automatic project detection."""
+
+    def test_auto_detect_with_env_var(self, tmp_path, monkeypatch):
+        """Test PENSIEVE_PROJECT env var takes precedence."""
+        from pensieve.path_utils import auto_detect_project
+
+        custom_path = "/custom/project/path"
+        monkeypatch.setenv("PENSIEVE_PROJECT", custom_path)
+
+        result = auto_detect_project()
+        assert result == custom_path
+
+    def test_auto_detect_with_git_repo(self, tmp_path, monkeypatch):
+        """Test auto-detection uses git root when in repo."""
+        from pensieve.path_utils import auto_detect_project
+
+        # Create a fake git repo with subfolder
+        git_dir = tmp_path / ".git"
+        git_dir.mkdir()
+        subfolder = tmp_path / "src" / "nested"
+        subfolder.mkdir(parents=True)
+
+        # Change to subfolder
+        monkeypatch.chdir(subfolder)
+
+        result = auto_detect_project()
+        assert result == str(tmp_path)
+
+    def test_auto_detect_fallback_to_pwd(self, tmp_path, monkeypatch):
+        """Test fallback to pwd when no git repo."""
+        from pensieve.path_utils import auto_detect_project
+
+        # Create a directory with no .git
+        no_git_dir = tmp_path / "no-repo"
+        no_git_dir.mkdir()
+
+        # Change to that directory
+        monkeypatch.chdir(no_git_dir)
+
+        result = auto_detect_project()
+        assert result == str(no_git_dir)
+
+    def test_auto_detect_priority(self, tmp_path, monkeypatch):
+        """Test that env var > git root > pwd."""
+        from pensieve.path_utils import auto_detect_project
+
+        # Create a fake git repo
+        git_dir = tmp_path / ".git"
+        git_dir.mkdir()
+        subfolder = tmp_path / "src"
+        subfolder.mkdir()
+
+        # Change to subfolder
+        monkeypatch.chdir(subfolder)
+
+        # Without env var, should use git root
+        result1 = auto_detect_project()
+        assert result1 == str(tmp_path)
+
+        # With env var, should use env var
+        custom_path = "/custom/path"
+        monkeypatch.setenv("PENSIEVE_PROJECT", custom_path)
+        result2 = auto_detect_project()
+        assert result2 == custom_path

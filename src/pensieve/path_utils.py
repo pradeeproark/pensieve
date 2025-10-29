@@ -144,3 +144,77 @@ def normalize_project_search(project_input: str) -> str:
     else:
         # It's a simple substring - return as-is
         return project_input
+
+
+def find_git_root(start_path: str | None = None) -> str | None:
+    """Find the root directory of a git repository.
+
+    Walks up the directory tree from start_path looking for a .git directory.
+
+    Args:
+        start_path: Directory to start search from. If None, uses current working directory.
+
+    Returns:
+        Absolute path to git repository root if found, None otherwise
+
+    Examples:
+        /Users/john/projects/myapp/src -> /Users/john/projects/myapp (if .git exists there)
+        /Users/john/projects/myapp -> /Users/john/projects/myapp (if .git exists there)
+        /tmp/no-repo -> None (no .git found)
+    """
+    if start_path is None:
+        start_path = os.getcwd()
+
+    current = Path(start_path).resolve()
+
+    # Walk up the directory tree
+    while True:
+        git_dir = current / '.git'
+        if git_dir.exists() and git_dir.is_dir():
+            return str(current)
+
+        # Check if we've reached the root
+        parent = current.parent
+        if parent == current:
+            # We've reached the filesystem root
+            return None
+
+        current = parent
+
+
+def auto_detect_project() -> str:
+    """Auto-detect project directory for current context.
+
+    Detection priority:
+    1. PENSIEVE_PROJECT environment variable (if set)
+    2. Git repository root (if current directory is in a git repo)
+    3. Current working directory (fallback)
+
+    Returns:
+        Absolute path to detected project directory
+
+    Examples:
+        # In a git repo subfolder
+        /Users/john/projects/myapp/src -> /Users/john/projects/myapp
+
+        # In a git repo root
+        /Users/john/projects/myapp -> /Users/john/projects/myapp
+
+        # Not in a git repo
+        /tmp/test -> /tmp/test
+
+        # With PENSIEVE_PROJECT set
+        export PENSIEVE_PROJECT=/custom/path -> /custom/path
+    """
+    # Check environment variable first
+    env_project = os.environ.get('PENSIEVE_PROJECT')
+    if env_project:
+        return env_project
+
+    # Try to find git root
+    git_root = find_git_root()
+    if git_root:
+        return git_root
+
+    # Fall back to current working directory
+    return os.getcwd()
