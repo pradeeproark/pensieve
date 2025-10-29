@@ -19,7 +19,16 @@ from pensieve.cli_helpers import (
 )
 from pensieve.database import Database, DatabaseError
 from pensieve.migration_runner import MigrationRunner
-from pensieve.models import FieldConstraints, FieldType, JournalEntry, Template, TemplateField
+from pensieve.models import (
+    EntryLink,
+    EntryStatus,
+    FieldConstraints,
+    FieldType,
+    JournalEntry,
+    LinkType,
+    Template,
+    TemplateField,
+)
 from pensieve.path_utils import expand_project_path, normalize_project_search, validate_project_path
 from pensieve.queries import search_entries
 from pensieve.validators import ValidationError
@@ -356,10 +365,14 @@ def entry_create(
         )
 
         db.create_entry(entry, template)
-        click.echo(f"✓ Created entry: {entry.id}")
+        click.echo(f"\n✓ Created entry: {entry.id}")
         click.echo(f"  Template: {template_name}")
         click.echo(f"  Project: {expand_project_path(entry.project)}")
-        click.echo(f"  Fields: {len(field_values)}")
+        click.echo(f"\n💡 Management options:")
+        click.echo(f"  • Link to related entries:  pensieve entry link {entry.id} <other-id> --type <type>")
+        click.echo(f"  • Add tags:                 pensieve entry tag {entry.id} --add <tag>")
+        click.echo(f"  • Supersede old entry:      pensieve entry link {entry.id} <old-id> --type supersedes")
+        click.echo(f"\n  Run 'pensieve entry show {entry.id}' to view this entry")
 
     except DatabaseError as e:
         click.echo(f"Error: {e}", err=True)
@@ -431,10 +444,39 @@ def entry_show(entry_id: str) -> None:
         click.echo(f"Agent: {e.agent}")
         click.echo(f"Project: {expanded_project}")
         click.echo(f"Timestamp: {e.timestamp.strftime('%Y-%m-%d %H:%M:%S')}")
+
+        # Show status with visual indicator
+        status_indicator = "✓" if e.status == EntryStatus.ACTIVE else "⚠️"
+        click.echo(f"Status: {status_indicator} {e.status.value}")
+
+        # Show tags if present
+        if e.tags:
+            click.echo(f"Tags: {', '.join(e.tags)}")
+
         click.echo(f"\nField Values:\n")
 
         for field_name, field_value in e.field_values.items():
             click.echo(f"  {field_name}: {field_value}")
+
+        # Show links FROM this entry
+        if e.links_from:
+            click.echo(f"\nLinks from this entry:\n")
+            for link in e.links_from:
+                target = db.get_entry_by_id(link.target_entry_id)
+                if target:
+                    target_template = db.get_template_by_id(target.template_id)
+                    target_template_name = target_template.name if target_template else "(unknown)"
+                    click.echo(f"  {link.link_type.value} → {link.target_entry_id} ({target_template_name})")
+
+        # Show links TO this entry
+        if e.links_to:
+            click.echo(f"\nLinks to this entry:\n")
+            for link in e.links_to:
+                source = db.get_entry_by_id(link.source_entry_id)
+                if source:
+                    source_template = db.get_template_by_id(source.template_id)
+                    source_template_name = source_template.name if source_template else "(unknown)"
+                    click.echo(f"  {link.link_type.value} ← {link.source_entry_id} ({source_template_name})")
 
     finally:
         db.close()
@@ -449,6 +491,10 @@ def entry_show(entry_id: str) -> None:
 @click.option("--field", help="Field name to search")
 @click.option("--value", help="Field value to search (requires --field)")
 @click.option("--substring", is_flag=True, help="Use substring match instead of exact")
+@click.option("--status", type=click.Choice(["active", "deprecated", "superseded"]), help="Filter by entry status")
+@click.option("--tag", "tags", multiple=True, help="Filter by tag (entries with ANY of these tags, repeatable)")
+@click.option("--linked-to", help="Filter entries that link TO this entry ID")
+@click.option("--linked-from", help="Filter entries linked FROM this entry ID")
 @click.option("--limit", default=50, help="Maximum number of results")
 def entry_search(
     template: str | None,
@@ -459,6 +505,10 @@ def entry_search(
     field: str | None,
     value: str | None,
     substring: bool,
+    status: str | None,
+    tags: tuple[str, ...],
+    linked_to: str | None,
+    linked_from: str | None,
     limit: int
 ) -> None:
     """Search journal entries."""
@@ -477,6 +527,23 @@ def entry_search(
         if project:
             project = normalize_project_search(project)
 
+        # Validate linked-to/linked-from are valid UUIDs if provided
+        linked_to_uuid = None
+        if linked_to:
+            try:
+                linked_to_uuid = UUID(linked_to)
+            except ValueError:
+                click.echo(f"Error: Invalid UUID format for --linked-to", err=True)
+                sys.exit(1)
+
+        linked_from_uuid = None
+        if linked_from:
+            try:
+                linked_from_uuid = UUID(linked_from)
+            except ValueError:
+                click.echo(f"Error: Invalid UUID format for --linked-from", err=True)
+                sys.exit(1)
+
         results = search_entries(
             db=db,
             template=template,
@@ -487,6 +554,10 @@ def entry_search(
             field_name=field,
             field_value=value,
             exact=not substring,
+            status=status,
+            tags=list(tags) if tags else None,
+            linked_to=linked_to_uuid,
+            linked_from=linked_from_uuid,
             limit=limit
         )
 
@@ -503,6 +574,23 @@ def entry_search(
 
             click.echo(f"  ID: {e.id}")
             click.echo(f"  Template: {template_name}")
+
+            # Show status with visual indicator if not active
+            if e.status != EntryStatus.ACTIVE:
+                status_indicator = "⚠️"
+                click.echo(f"  Status: {status_indicator} {e.status.value}")
+
+                # If superseded, show what supersedes it
+                if e.status == EntryStatus.SUPERSEDED:
+                    for link in e.links_to:
+                        if link.link_type == LinkType.SUPERSEDES:
+                            click.echo(f"  → Superseded by: {link.source_entry_id}")
+                            break
+
+            # Show tags if present
+            if e.tags:
+                click.echo(f"  Tags: {', '.join(e.tags)}")
+
             click.echo(f"  Agent: {e.agent}")
             click.echo(f"  Project: {expanded_project}")
             click.echo(f"  Timestamp: {e.timestamp.strftime('%Y-%m-%d %H:%M:%S')}")
@@ -514,6 +602,148 @@ def entry_search(
             click.echo()
 
     except Exception as e:
+        click.echo(f"Error: {e}", err=True)
+        sys.exit(1)
+    finally:
+        db.close()
+
+
+@entry.command("update-status")
+@click.argument("entry_id")
+@click.argument("status", type=click.Choice(["active", "deprecated", "superseded"]))
+def entry_update_status(entry_id: str, status: str) -> None:
+    """Update entry status.
+
+    Examples:
+        pensieve entry update-status abc123 deprecated
+        pensieve entry update-status abc123 superseded
+    """
+    db = Database()
+
+    try:
+        try:
+            uuid = UUID(entry_id)
+        except ValueError:
+            click.echo(f"Error: Invalid entry ID format", err=True)
+            sys.exit(1)
+
+        # Verify entry exists
+        entry = db.get_entry_by_id(uuid)
+        if entry is None:
+            click.echo(f"Error: Entry '{entry_id}' not found", err=True)
+            sys.exit(1)
+
+        # Update status
+        new_status = EntryStatus(status)
+        db.update_entry_status(uuid, new_status)
+
+        click.echo(f"Updated entry {entry_id} status to '{status}'")
+
+    except DatabaseError as e:
+        click.echo(f"Error: {e}", err=True)
+        sys.exit(1)
+    finally:
+        db.close()
+
+
+@entry.command("link")
+@click.argument("from_id")
+@click.argument("to_id")
+@click.option("--type", "link_type", type=click.Choice(["supersedes", "relates_to", "augments", "deprecates"]), required=True, help="Link type")
+def entry_link(from_id: str, to_id: str, link_type: str) -> None:
+    """Create a link between two entries.
+
+    Examples:
+        pensieve entry link new-id old-id --type supersedes
+        pensieve entry link entry1 entry2 --type relates_to
+    """
+    db = Database()
+
+    try:
+        # Parse UUIDs
+        try:
+            from_uuid = UUID(from_id)
+            to_uuid = UUID(to_id)
+        except ValueError:
+            click.echo(f"Error: Invalid UUID format", err=True)
+            sys.exit(1)
+
+        # Get agent name from environment or use default
+        agent = os.environ.get("USER", "unknown")
+
+        # Create link
+        link = EntryLink(
+            source_entry_id=from_uuid,
+            target_entry_id=to_uuid,
+            link_type=LinkType(link_type),
+            created_by=agent
+        )
+
+        db.create_entry_link(link)
+
+        click.echo(f"Created link: {from_id} --{link_type}--> {to_id}")
+
+    except DatabaseError as e:
+        click.echo(f"Error: {e}", err=True)
+        sys.exit(1)
+    except ValidationError as e:
+        click.echo(f"Error: {e}", err=True)
+        sys.exit(1)
+    finally:
+        db.close()
+
+
+@entry.command("tag")
+@click.argument("entry_id")
+@click.option("--add", "add_tags", multiple=True, help="Tag to add (repeatable)")
+@click.option("--remove", "remove_tags", multiple=True, help="Tag to remove (repeatable)")
+def entry_tag(entry_id: str, add_tags: tuple[str, ...], remove_tags: tuple[str, ...]) -> None:
+    """Add or remove tags from an entry.
+
+    Examples:
+        pensieve entry tag abc123 --add authentication --add security
+        pensieve entry tag abc123 --remove outdated
+        pensieve entry tag abc123 --add bug-fix --remove workaround
+    """
+    db = Database()
+
+    try:
+        # Validate at least one operation
+        if not add_tags and not remove_tags:
+            click.echo("Error: Must specify at least one --add or --remove option", err=True)
+            sys.exit(1)
+
+        # Parse UUID
+        try:
+            uuid = UUID(entry_id)
+        except ValueError:
+            click.echo(f"Error: Invalid entry ID format", err=True)
+            sys.exit(1)
+
+        # Verify entry exists
+        entry = db.get_entry_by_id(uuid)
+        if entry is None:
+            click.echo(f"Error: Entry '{entry_id}' not found", err=True)
+            sys.exit(1)
+
+        # Add tags
+        if add_tags:
+            db.add_entry_tags(uuid, list(add_tags))
+            click.echo(f"Added tags: {', '.join(add_tags)}")
+
+        # Remove tags
+        if remove_tags:
+            db.remove_entry_tags(uuid, list(remove_tags))
+            click.echo(f"Removed tags: {', '.join(remove_tags)}")
+
+        # Show current tags
+        updated_entry = db.get_entry_by_id(uuid)
+        if updated_entry and updated_entry.tags:
+            click.echo(f"Current tags: {', '.join(updated_entry.tags)}")
+        else:
+            click.echo("Current tags: (none)")
+
+    except DatabaseError as e:
         click.echo(f"Error: {e}", err=True)
         sys.exit(1)
     finally:
