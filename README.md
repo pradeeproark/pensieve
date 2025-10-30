@@ -25,7 +25,6 @@ python build/build.py
 **Inline field definitions:**
 ```bash
 pensieve template create problem_solved \
-  --project $(pwd) \
   --description "For recording solved problems" \
   --field "problem:text:required:max_length=500:What was the issue?" \
   --field "solution:text:required:max_length=1000:How was it fixed?" \
@@ -35,7 +34,6 @@ pensieve template create problem_solved \
 **From JSON file:**
 ```bash
 pensieve template create problem_solved \
-  --project $(pwd) \
   --from-file template.json
 ```
 
@@ -44,7 +42,6 @@ pensieve template create problem_solved \
 **Inline field values:**
 ```bash
 pensieve entry create problem_solved \
-  --project $(pwd) \
   --field problem="Authentication failing in CI" \
   --field solution="Added environment variable" \
   --field learned="Always check CI config"
@@ -53,14 +50,13 @@ pensieve entry create problem_solved \
 **From JSON file:**
 ```bash
 pensieve entry create problem_solved \
-  --project $(pwd) \
   --from-file entry.json
 ```
 
 ### 3. Search Memories
 ```bash
-# Search by project
-pensieve entry search --project $(pwd)
+# Search all entries (project auto-detected)
+pensieve entry search
 
 # Search by template
 pensieve entry search --template problem_solved
@@ -80,16 +76,16 @@ pensieve entry search --field problem --value "authentication" --substring
 ## Commands
 
 ### Templates
-- `pensieve template create <name> --project <path> --field "..." [--field "..."]` - Create new template with inline fields
-- `pensieve template create <name> --project <path> --from-file template.json` - Create template from JSON
+- `pensieve template create <name> --field "..." [--field "..."]` - Create new template with inline fields (project auto-detected)
+- `pensieve template create <name> --from-file template.json` - Create template from JSON (project auto-detected)
 - `pensieve template list` - List all templates
 - `pensieve template show <name>` - Show template details
 - `pensieve template export <name>` - Export template as JSON
 - `pensieve template import <file>` - Import template from JSON
 
 ### Entries
-- `pensieve entry create <template> --project <path> --field key=value [--field ...]` - Create entry with inline values
-- `pensieve entry create <template> --project <path> --from-file entry.json` - Create entry from JSON
+- `pensieve entry create <template> --field key=value [--field ...]` - Create entry with inline values (project auto-detected)
+- `pensieve entry create <template> --from-file entry.json` - Create entry from JSON (project auto-detected)
 - `pensieve entry list` - List recent entries
 - `pensieve entry show <id>` - Show entry details
 - `pensieve entry search` - Search entries with filters

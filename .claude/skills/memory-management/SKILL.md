@@ -795,27 +795,27 @@ conftest.py location when fixtures aren't found."
 ### Scenario: Starting Work on New Project
 
 ```bash
-# 1. Check existing memories
-pensieve entry search --project ~/projects/new-api
+# 1. Check existing memories (project auto-detected from git root or cwd)
+pensieve entry search
 
 # Output: "No entries found"
 # → This is a fresh project for you
 
-# 2. Create essential templates
-pensieve template create --project ~/projects/new-api
+# 2. Create essential templates (project auto-detected)
+pensieve template create
 # Create: problem_solved, pattern_discovered, key_resource
 
 # 3. Work begins...
 # ... 2 hours later, after reading codebase ...
 
-# 4. Record initial learnings
-pensieve entry create key_file --project ~/projects/new-api
+# 4. Record initial learnings (project auto-detected)
+pensieve entry create key_file
 # Document main entry points, key directories
 
-pensieve entry create pattern_discovered --project ~/projects/new-api
+pensieve entry create pattern_discovered
 # Document API routing pattern you discovered
 
-pensieve entry create key_resource --project ~/projects/new-api
+pensieve entry create key_resource
 # Record the architecture doc you found invaluable
 ```
 
@@ -828,8 +828,8 @@ pensieve entry create key_resource --project ~/projects/new-api
 
 # 3. Implement solution with 120s tolerance
 
-# 4. IMMEDIATELY record (don't wait)
-pensieve entry create problem_solved --project ~/projects/my-api
+# 4. IMMEDIATELY record (don't wait, project auto-detected)
+pensieve entry create problem_solved
 
 # Fill in:
 # - problem: Clear description of the symptom
@@ -846,16 +846,16 @@ pensieve entry create problem_solved --project ~/projects/my-api
 ### Scenario: Weekly Review
 
 ```bash
-# Friday afternoon, review week's memories
+# Friday afternoon, review week's memories (project auto-detected)
 
-pensieve entry list --project ~/projects/my-api --limit 50
+pensieve entry list --limit 50
 
 # Read through entries
 # Notice 3 entries about async/await issues
 # → Pattern emerging: Team struggles with async
 
-# Record this meta-pattern
-pensieve entry create key_resource --project ~/projects/my-api
+# Record this meta-pattern (project auto-detected)
+pensieve entry create key_resource
 # resource: "Async/await guide"
 # notes: "Team has had 3 separate issues with async in past month.
 #         Everyone should review this guide."
