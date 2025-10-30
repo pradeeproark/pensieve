@@ -5,20 +5,22 @@ This directory contains Claude Code hooks that integrate Pensieve memory managem
 ## Hook Scripts
 
 ### `todo-memory-check.py` (PreToolUse: TodoWrite)
-**Primary hook for automatic memory integration with stateful todo preservation**
+**Primary hook for automatic memory integration with stateful, project-specific todo preservation**
 
 - **Trigger**: Before any TodoWrite tool execution
 - **Action**:
-  - Maintains state file at `~/.claude/state/current_todos.json`
+  - Maintains **project-specific** state files at `~/.claude/state/<project-hash>/current_todos.json`
+  - Each working directory gets its own isolated todo state (no cross-project contamination)
   - Merges input todos with state to preserve hook-added items
   - Automatically prepends "Search Pensieve for related memories" to any todo list with pending items
   - Input todos take precedence (allows Claude to update status)
   - State todos not in input are preserved (prevents accidental deletion)
   - **Filters out completed todos before saving to state** (prevents accumulation)
-- **Purpose**: Ensures you check for existing solutions before starting new work, while preserving todos from being lost when Claude creates new lists
+- **Purpose**: Ensures you check for existing solutions before starting new work, while preserving todos from being lost when Claude creates new lists, with complete isolation between projects
 - **Logging**: Detailed logs at `~/.claude/logs/todo-memory-check.log`
 - **Smart detection**: Only adds Pensieve todo once, checks if already present
 - **State cleanup**: Completed todos appear in current response but don't persist in state
+- **Project isolation**: Working in `/projectA` and `/projectB` maintains separate todo lists
 
 ### `session-memory-reminder.sh` (SessionStart)
 **Session initialization reminder**
@@ -139,17 +141,21 @@ The hooks are configured in `~/.claude/settings.json`:
 
 ## State Management
 
-The `todo-memory-check.py` hook maintains a state file to preserve todos between invocations:
+The `todo-memory-check.py` hook maintains **project-specific** state files to preserve todos between invocations:
 
-- **Location**: `~/.claude/state/current_todos.json`
-- **Purpose**: Prevents accidentally losing todos when Claude creates new lists
+- **Location**: `~/.claude/state/<project-hash>/current_todos.json`
+  - Each project (working directory) gets its own isolated state
+  - Project hash is MD5 of working directory path (first 16 characters)
+  - Metadata stored in `project.txt` for debugging
+- **Purpose**: Prevents accidentally losing todos when Claude creates new lists, while ensuring todos don't leak between projects
 - **Merge Logic**:
-  1. Load current state from file
-  2. Merge input todos (from Claude) with state todos
-  3. Input todos take precedence (allows status updates)
-  4. State todos not mentioned in input are preserved
-  5. **Filter out completed todos** (prevents accumulation)
-  6. Save filtered result back to state file
+  1. Determine project-specific state file based on current working directory
+  2. Load current state from project-specific file
+  3. Merge input todos (from Claude) with state todos
+  4. Input todos take precedence (allows status updates)
+  5. State todos not mentioned in input are preserved
+  6. **Filter out completed todos** (prevents accumulation)
+  7. Save filtered result back to project-specific state file
 - **State Cleanup**: Completed todos appear in the current hook response but are not persisted to state, preventing indefinite accumulation of completed tasks
 
 ### State File Example:
@@ -169,17 +175,31 @@ The `todo-memory-check.py` hook maintains a state file to preserve todos between
 ]
 ```
 
-### Managing State:
+### Managing Project-Specific State:
 
 ```bash
-# View current state
-cat ~/.claude/state/current_todos.json
+# View all project state directories
+ls -la ~/.claude/state/
 
-# Clear state (resets todo list)
+# Find which project a state directory belongs to
+cat ~/.claude/state/<hash>/project.txt
+
+# View current project's state
+# (Run from within your project directory)
+HASH=$(python3 -c "import hashlib; from pathlib import Path; print(hashlib.md5(str(Path.cwd()).encode()).hexdigest()[:16])")
+cat ~/.claude/state/$HASH/current_todos.json
+
+# Clear current project's state
+rm ~/.claude/state/$HASH/current_todos.json
+
+# Clear all project states (nuclear option)
+rm -rf ~/.claude/state/*/
+
+# Clean up old global state file (if it exists from before this update)
 rm ~/.claude/state/current_todos.json
 
-# Backup state
-cp ~/.claude/state/current_todos.json ~/.claude/state/current_todos.backup.json
+# Backup all state
+cp -r ~/.claude/state ~/.claude/state.backup.$(date +%Y%m%d_%H%M%S)
 ```
 
 ## Logging
@@ -229,12 +249,35 @@ grep "session_id" ~/.claude/logs/todo-memory-check.log
 
 ### State issues (todos accumulating or not preserving)
 
-1. Check state file exists and is valid JSON: `cat ~/.claude/state/current_todos.json`
-2. View merge operations in logs: `grep "Merge result" ~/.claude/logs/todo-memory-check.log`
-3. Verify completed todos are being filtered: `grep "Filtered out" ~/.claude/logs/todo-memory-check.log`
-4. Count completed todos in state (should be 0): `cat ~/.claude/state/current_todos.json | jq 'map(select(.status == "completed")) | length'`
-5. Clear state if needed: `rm ~/.claude/state/current_todos.json`
-6. Check state directory permissions: `ls -la ~/.claude/state/`
+1. Find your project's state directory:
+   ```bash
+   HASH=$(python3 -c "import hashlib; from pathlib import Path; print(hashlib.md5(str(Path.cwd()).encode()).hexdigest()[:16])")
+   echo "Your project hash: $HASH"
+   cat ~/.claude/state/$HASH/project.txt
+   ```
+
+2. Check state file exists and is valid JSON:
+   ```bash
+   cat ~/.claude/state/$HASH/current_todos.json
+   ```
+
+3. View merge operations in logs: `grep "Merge result" ~/.claude/logs/todo-memory-check.log`
+
+4. Verify completed todos are being filtered: `grep "Filtered out" ~/.claude/logs/todo-memory-check.log`
+
+5. Count completed todos in state (should be 0):
+   ```bash
+   cat ~/.claude/state/$HASH/current_todos.json | jq 'map(select(.status == "completed")) | length'
+   ```
+
+6. Clear state if needed: `rm ~/.claude/state/$HASH/current_todos.json`
+
+7. Check state directory permissions: `ls -la ~/.claude/state/`
+
+8. Verify project isolation - check different projects have different hashes:
+   ```bash
+   find ~/.claude/state -name "project.txt" -exec sh -c 'echo "=== $1 ===" && cat "$1"' _ {} \;
+   ```
 
 **Note**: Completed todos should NOT accumulate in the state file. If you see completed todos persisting across sessions, check that you're running the latest version of `todo-memory-check.py`.
 

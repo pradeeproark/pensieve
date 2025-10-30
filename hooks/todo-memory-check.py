@@ -5,7 +5,8 @@ This hook fires BEFORE todos are updated, allowing modification of input
 Triggers on: pending todos created OR todos marked completed
 
 STATE MANAGEMENT:
-- Maintains state file at ~/.claude/state/current_todos.json
+- Maintains project-specific state files at ~/.claude/state/<project-hash>/current_todos.json
+- Each project (working directory) gets its own isolated todo state
 - Merges input todos with state todos to preserve hook-added items
 - Input todos take precedence (allows Claude to update status)
 - State todos not in input are preserved (prevents accidental deletion)
@@ -14,6 +15,7 @@ STATE MANAGEMENT:
 import json
 import sys
 import logging
+import hashlib
 from datetime import datetime
 from pathlib import Path
 
@@ -28,13 +30,41 @@ logging.basicConfig(
     format='%(asctime)s - %(levelname)s - %(message)s'
 )
 
-# State management
-state_dir = Path.home() / ".claude" / "state"
-state_file = state_dir / "current_todos.json"
+
+def get_state_file():
+    """
+    Get project-specific state file based on current working directory.
+
+    Creates a unique state directory for each project using a hash of the
+    working directory path. This ensures todos don't leak between projects.
+
+    Returns:
+        Path: Path to the current_todos.json file for this project
+    """
+    cwd = Path.cwd()
+
+    # Create stable hash of project path (use first 16 chars for readability)
+    project_hash = hashlib.md5(str(cwd).encode()).hexdigest()[:16]
+
+    # Create project-specific state directory
+    state_dir = Path.home() / ".claude" / "state" / project_hash
+    state_dir.mkdir(parents=True, exist_ok=True, mode=0o755)
+
+    # Store metadata file for debugging/inspection
+    metadata_file = state_dir / "project.txt"
+    if not metadata_file.exists():
+        metadata_file.write_text(str(cwd))
+        logging.info(f"Created metadata file for project: {cwd}")
+
+    state_file = state_dir / "current_todos.json"
+    logging.debug(f"Using state file: {state_file} (project: {cwd})")
+
+    return state_file
 
 
 def load_state():
     """Load current todo state from file. Returns empty list if file doesn't exist."""
+    state_file = get_state_file()
     try:
         if not state_file.exists():
             logging.info("State file does not exist, returning empty list")
@@ -54,8 +84,9 @@ def load_state():
 
 def save_state(todos):
     """Save current todo state to file."""
+    state_file = get_state_file()
     try:
-        state_dir.mkdir(exist_ok=True, mode=0o755)
+        # State directory is already created by get_state_file()
         with open(state_file, 'w') as f:
             json.dump(todos, f, indent=2)
         logging.info(f"Saved {len(todos)} todos to state file")
