@@ -5,22 +5,15 @@ This directory contains Claude Code hooks that integrate Pensieve memory managem
 ## Hook Scripts
 
 ### `todo-memory-check.py` (PreToolUse: TodoWrite)
-**Primary hook for automatic memory integration with stateful, project-specific todo preservation**
+**Non-intrusive memory management reminders**
 
 - **Trigger**: Before any TodoWrite tool execution
-- **Action**:
-  - Maintains **project-specific** state files at `~/.claude/state/<project-hash>/current_todos.json`
-  - Each working directory gets its own isolated todo state (no cross-project contamination)
-  - Merges input todos with state to preserve hook-added items
-  - Automatically prepends "Search Pensieve for related memories" to any todo list with pending items
-  - Input todos take precedence (allows Claude to update status)
-  - State todos not in input are preserved (prevents accidental deletion)
-  - **Filters out completed todos before saving to state** (prevents accumulation)
-- **Purpose**: Ensures you check for existing solutions before starting new work, while preserving todos from being lost when Claude creates new lists, with complete isolation between projects
-- **Logging**: Detailed logs at `~/.claude/logs/todo-memory-check.log`
-- **Smart detection**: Only adds Pensieve todo once, checks if already present
-- **State cleanup**: Completed todos appear in current response but don't persist in state
-- **Project isolation**: Working in `/projectA` and `/projectB` maintains separate todo lists
+- **Action**: Provides system message reminders only (no todo modification)
+  - When **pending todos exist**: Reminds to search Pensieve for related memories
+  - When **completed todos exist**: Reminds to record learnings using 3-question rubric
+- **Purpose**: Gentle nudges to leverage and contribute to memory bank without interfering with todo list management
+- **Logging**: Activity logs at `~/.claude/logs/todo-memory-check.log`
+- **Non-intrusive**: Does not track state, merge todos, or modify the todo list in any way
 
 ### `session-memory-reminder.sh` (SessionStart)
 **Session initialization reminder**
@@ -139,76 +132,14 @@ The hooks are configured in `~/.claude/settings.json`:
 }
 ```
 
-## State Management
-
-The `todo-memory-check.py` hook maintains **project-specific** state files to preserve todos between invocations:
-
-- **Location**: `~/.claude/state/<project-hash>/current_todos.json`
-  - Each project (working directory) gets its own isolated state
-  - Project hash is MD5 of working directory path (first 16 characters)
-  - Metadata stored in `project.txt` for debugging
-- **Purpose**: Prevents accidentally losing todos when Claude creates new lists, while ensuring todos don't leak between projects
-- **Merge Logic**:
-  1. Determine project-specific state file based on current working directory
-  2. Load current state from project-specific file
-  3. Merge input todos (from Claude) with state todos
-  4. Input todos take precedence (allows status updates)
-  5. State todos not mentioned in input are preserved
-  6. **Filter out completed todos** (prevents accumulation)
-  7. Save filtered result back to project-specific state file
-- **State Cleanup**: Completed todos appear in the current hook response but are not persisted to state, preventing indefinite accumulation of completed tasks
-
-### State File Example:
-
-```json
-[
-  {
-    "content": "Search Pensieve for related memories",
-    "activeForm": "Searching Pensieve for related memories",
-    "status": "pending"
-  },
-  {
-    "content": "Fix authentication bug",
-    "status": "in_progress",
-    "activeForm": "Fixing authentication bug"
-  }
-]
-```
-
-### Managing Project-Specific State:
-
-```bash
-# View all project state directories
-ls -la ~/.claude/state/
-
-# Find which project a state directory belongs to
-cat ~/.claude/state/<hash>/project.txt
-
-# View current project's state
-# (Run from within your project directory)
-HASH=$(python3 -c "import hashlib; from pathlib import Path; print(hashlib.md5(str(Path.cwd()).encode()).hexdigest()[:16])")
-cat ~/.claude/state/$HASH/current_todos.json
-
-# Clear current project's state
-rm ~/.claude/state/$HASH/current_todos.json
-
-# Clear all project states (nuclear option)
-rm -rf ~/.claude/state/*/
-
-# Clean up old global state file (if it exists from before this update)
-rm ~/.claude/state/current_todos.json
-
-# Backup all state
-cp -r ~/.claude/state ~/.claude/state.backup.$(date +%Y%m%d_%H%M%S)
-```
 
 ## Logging
 
 The Python hook (`todo-memory-check.py`) logs to:
 - **Location**: `~/.claude/logs/todo-memory-check.log`
-- **Level**: DEBUG - captures all input/output
-- **Format**: Timestamped entries with full JSON structures
-- **Use case**: Debugging hook behavior and understanding input structure
+- **Level**: INFO - logs hook triggers and reminders provided
+- **Format**: Timestamped entries
+- **Use case**: Debugging hook behavior if reminders aren't appearing
 
 ### Viewing logs:
 
@@ -218,9 +149,6 @@ tail -f ~/.claude/logs/todo-memory-check.log
 
 # View full log
 cat ~/.claude/logs/todo-memory-check.log
-
-# Search for specific session
-grep "session_id" ~/.claude/logs/todo-memory-check.log
 ```
 
 ## Troubleshooting
@@ -241,45 +169,15 @@ grep "session_id" ~/.claude/logs/todo-memory-check.log
    echo '{"tool_input":{"todos":[{"content":"Test","status":"pending","activeForm":"Testing"}]}}' | ~/.claude/hooks/todo-memory-check.py
    ```
 
-### Todos not being modified
+### Reminders not appearing
 
-1. Check log output shows "Merged todos with state"
+1. Check log output shows hook is triggering: `cat ~/.claude/logs/todo-memory-check.log`
 2. Verify hook returns proper JSON structure
 3. Ensure `tool_input.todos` path is correct (may change with Claude Code updates)
-
-### State issues (todos accumulating or not preserving)
-
-1. Find your project's state directory:
+4. Test manually to verify reminders are generated:
    ```bash
-   HASH=$(python3 -c "import hashlib; from pathlib import Path; print(hashlib.md5(str(Path.cwd()).encode()).hexdigest()[:16])")
-   echo "Your project hash: $HASH"
-   cat ~/.claude/state/$HASH/project.txt
+   echo '{"tool_input":{"todos":[{"content":"Test","status":"pending","activeForm":"Testing"}]}}' | ~/.claude/hooks/todo-memory-check.py
    ```
-
-2. Check state file exists and is valid JSON:
-   ```bash
-   cat ~/.claude/state/$HASH/current_todos.json
-   ```
-
-3. View merge operations in logs: `grep "Merge result" ~/.claude/logs/todo-memory-check.log`
-
-4. Verify completed todos are being filtered: `grep "Filtered out" ~/.claude/logs/todo-memory-check.log`
-
-5. Count completed todos in state (should be 0):
-   ```bash
-   cat ~/.claude/state/$HASH/current_todos.json | jq 'map(select(.status == "completed")) | length'
-   ```
-
-6. Clear state if needed: `rm ~/.claude/state/$HASH/current_todos.json`
-
-7. Check state directory permissions: `ls -la ~/.claude/state/`
-
-8. Verify project isolation - check different projects have different hashes:
-   ```bash
-   find ~/.claude/state -name "project.txt" -exec sh -c 'echo "=== $1 ===" && cat "$1"' _ {} \;
-   ```
-
-**Note**: Completed todos should NOT accumulate in the state file. If you see completed todos persisting across sessions, check that you're running the latest version of `todo-memory-check.py`.
 
 ## Development
 
@@ -314,7 +212,7 @@ echo '{"tool_input":{"todos":[{"content":"Test task","status":"pending","activeF
 The hooks support this workflow:
 
 1. **Session Start** → Reminded to search Pensieve
-2. **Create Todo** → "Search Pensieve" automatically added
+2. **Create Todo** → Gentle reminder to search for related memories
 3. **Work on Task** → Periodic reminders during complex operations
 4. **Complete Work** → Prompted to record learnings
 5. **Session End** → Final reminder to capture insights
