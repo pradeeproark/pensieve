@@ -18,6 +18,7 @@ from pensieve.cli_helpers import (
     parse_field_value,
 )
 from pensieve.database import Database, DatabaseError
+from pensieve.graph_traversal import traverse_entry_links
 from pensieve.migration_runner import MigrationRunner
 from pensieve.models import (
     EntryLink,
@@ -441,8 +442,19 @@ def entry_list(limit: int, offset: int) -> None:
 
 @entry.command("show")
 @click.argument("entry_id")
-def entry_show(entry_id: str) -> None:
+@click.option("--follow-links", "-f", is_flag=True, help="Follow and display related entries")
+@click.option("--depth", type=int, default=1, help="Maximum depth for link traversal (default: 1)")
+def entry_show(entry_id: str, follow_links: bool, depth: int) -> None:
     """Show entry details."""
+    # Validate depth
+    if depth < 1:
+        click.echo(f"Error: depth must be at least 1", err=True)
+        sys.exit(1)
+
+    # Warn if depth specified without follow_links
+    if depth != 1 and not follow_links:
+        click.echo(f"Warning: --depth specified without --follow-links, ignoring depth parameter", err=True)
+
     db = Database()
 
     try:
@@ -500,6 +512,57 @@ def entry_show(entry_id: str) -> None:
                     source_template = db.get_template_by_id(source.template_id)
                     source_template_name = source_template.name if source_template else "(unknown)"
                     click.echo(f"  {link.link_type.value} ← {link.source_entry_id} ({source_template_name})")
+
+        # Handle --follow-links flag
+        has_links = bool(e.links_from or e.links_to)
+
+        if follow_links:
+            # Traverse and display related entries
+            related = traverse_entry_links(db, uuid, depth)
+
+            if related:
+                click.echo("\n" + "━" * 60)
+                click.echo(f"Related Entries (depth {depth}):")
+                click.echo("━" * 60 + "\n")
+
+                for metadata in related:
+                    rel_template = db.get_template_by_id(metadata.entry.template_id)
+                    rel_template_name = rel_template.name if rel_template else "(unknown)"
+                    rel_expanded_project = expand_project_path(metadata.entry.project)
+
+                    # Status indicator
+                    rel_status_indicator = "✓" if metadata.entry.status == EntryStatus.ACTIVE else "⚠️"
+
+                    # Format path
+                    path_str = " ".join([f"{lt.value} {dir}" for lt, dir in metadata.path])
+
+                    # Header line with depth, id, template, timestamp, status
+                    click.echo(
+                        f"[Depth {metadata.depth}] {metadata.entry_id} ({rel_template_name}) • "
+                        f"{metadata.entry.timestamp.strftime('%Y-%m-%d %H:%M:%S')} • "
+                        f"{rel_status_indicator} {metadata.entry.status.value}"
+                    )
+
+                    # Path line
+                    click.echo(f"  Path: {path_str}")
+
+                    # Field values
+                    if metadata.entry.field_values:
+                        click.echo(f"  Fields:")
+                        for field_name, field_value in metadata.entry.field_values.items():
+                            click.echo(f"    {field_name}: {field_value}")
+
+                    click.echo()  # Blank line between entries
+            else:
+                click.echo(f"\nNo related entries found within depth {depth}.")
+
+            # Hint about depth if using default
+            if depth == 1:
+                click.echo(f"\n💡 Hint: Showing links at depth 1 (default). Use --depth N to see deeper relationships.")
+
+        elif has_links:
+            # Show hint about --follow-links if entry has links and flag not used
+            click.echo(f"\n💡 Hint: This entry has linked entries. Use --follow-links to see related entries.")
 
     finally:
         db.close()
