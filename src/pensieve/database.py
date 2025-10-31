@@ -485,6 +485,71 @@ class Database:
             ))
         return links
 
+    def get_linked_entries_batch(
+        self, entry_ids: list[UUID]
+    ) -> dict[UUID, tuple[list[EntryLink], list[EntryLink]]]:
+        """Batch fetch all links (both from and to) for multiple entry IDs.
+
+        Args:
+            entry_ids: List of entry UUIDs to fetch links for
+
+        Returns:
+            Dictionary mapping entry_id -> (links_from, links_to)
+        """
+        if not entry_ids:
+            return {}
+
+        # Convert UUIDs to strings for SQL query
+        id_strings = [str(eid) for eid in entry_ids]
+        placeholders = ",".join("?" * len(id_strings))
+
+        # Query for all outgoing links
+        cursor_from = self.conn.execute(f"""
+            SELECT id, source_entry_id, target_entry_id, link_type, created_at, created_by
+            FROM entry_links
+            WHERE source_entry_id IN ({placeholders})
+        """, id_strings)
+
+        # Group links_from by source_entry_id
+        links_from_map: dict[UUID, list[EntryLink]] = {eid: [] for eid in entry_ids}
+        for row in cursor_from.fetchall():
+            source_id = UUID(row["source_entry_id"])
+            links_from_map[source_id].append(EntryLink(
+                id=UUID(row["id"]),
+                source_entry_id=source_id,
+                target_entry_id=UUID(row["target_entry_id"]),
+                link_type=LinkType(row["link_type"]),
+                created_at=datetime.fromisoformat(row["created_at"]),
+                created_by=row["created_by"]
+            ))
+
+        # Query for all incoming links
+        cursor_to = self.conn.execute(f"""
+            SELECT id, source_entry_id, target_entry_id, link_type, created_at, created_by
+            FROM entry_links
+            WHERE target_entry_id IN ({placeholders})
+        """, id_strings)
+
+        # Group links_to by target_entry_id
+        links_to_map: dict[UUID, list[EntryLink]] = {eid: [] for eid in entry_ids}
+        for row in cursor_to.fetchall():
+            target_id = UUID(row["target_entry_id"])
+            links_to_map[target_id].append(EntryLink(
+                id=UUID(row["id"]),
+                source_entry_id=UUID(row["source_entry_id"]),
+                target_entry_id=target_id,
+                link_type=LinkType(row["link_type"]),
+                created_at=datetime.fromisoformat(row["created_at"]),
+                created_by=row["created_by"]
+            ))
+
+        # Combine into result dict
+        result = {}
+        for eid in entry_ids:
+            result[eid] = (links_from_map[eid], links_to_map[eid])
+
+        return result
+
     # Entry management operations
 
     def create_entry_link(self, link: EntryLink) -> None:
