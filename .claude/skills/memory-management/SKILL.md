@@ -17,6 +17,216 @@ This skill guides you to use Pensieve as a **curated notebook**, not a comprehen
 - When stuck on a problem (to retrieve past learnings)
 </EXTREMELY-IMPORTANT>
 
+# MANDATORY TODO PROTOCOL
+
+<CRITICAL>
+**BEFORE starting any work that uses TodoWrite, you MUST add these two todos to your todo list:**
+
+1. **FIRST TODO** (at the start of your list):
+   ```
+   content: "Search Pensieve for relevant memories related to this task"
+   activeForm: "Searching Pensieve for relevant memories"
+   status: "pending"
+   ```
+
+2. **LAST TODO** (at the end of your list):
+   ```
+   content: "Evaluate and record learnings to Pensieve if valuable"
+   activeForm: "Evaluating and recording learnings to Pensieve"
+   status: "pending"
+   ```
+
+**This is NOT optional. This is NOT a suggestion. You MUST include both todos.**
+
+**Why this matters:**
+- The first todo ensures you don't duplicate work or miss existing solutions
+- The last todo ensures valuable learnings don't get lost
+- Pensieve is worthless if memories aren't retrieved and recorded consistently
+
+**Example:**
+```
+User: "Help me implement user authentication"
+
+You create todos:
+[
+  {
+    "content": "Search Pensieve for relevant memories related to this task",
+    "activeForm": "Searching Pensieve for relevant memories",
+    "status": "pending"
+  },
+  {
+    "content": "Design authentication system",
+    "activeForm": "Designing authentication system",
+    "status": "pending"
+  },
+  {
+    "content": "Implement auth endpoints",
+    "activeForm": "Implementing auth endpoints",
+    "status": "pending"
+  },
+  {
+    "content": "Write tests",
+    "activeForm": "Writing tests",
+    "status": "pending"
+  },
+  {
+    "content": "Evaluate and record learnings to Pensieve if valuable",
+    "activeForm": "Evaluating and recording learnings to Pensieve",
+    "status": "pending"
+  }
+]
+```
+
+**When to actually perform these tasks:**
+- **Pensieve search todo**: Mark in_progress when you start working, search immediately
+- **Pensieve recording todo**: Mark in_progress when all work todos are completed, apply 3-question rubric
+
+**Exceptions:**
+- Trivial single-step tasks (like "read this file" or "explain this code") don't need todos at all
+- If you're not using TodoWrite for a task, these todos aren't required
+- But if you ARE using TodoWrite, these todos are MANDATORY
+</CRITICAL>
+
+# MANDATORY SESSION START PROTOCOL
+
+<CRITICAL>
+**BEFORE responding to ANY user request in a project, you MUST complete this checklist:**
+
+1. ☐ Invoke the `memory-management` skill using the Skill tool
+2. ☐ Run `pensieve entry search` to check for existing memories
+3. ☐ Show the search output to the user (even if empty)
+4. ☐ Acknowledge what was found or explicitly state "No memories found"
+
+**This is NOT optional. This is NOT a suggestion. You MUST complete this protocol.**
+
+**Why this matters:**
+- Without searching, you may duplicate work already done
+- Past learnings contain solutions to problems you're about to face
+- Empty searches are OK - acknowledging them shows you checked
+- Skipping this protocol means wasting time re-discovering solutions
+
+**Example of CORRECT behavior:**
+
+```
+User: "Help me implement user authentication"
+
+Claude: Let me first check for existing memories about authentication in this project.
+
+[Runs: pensieve entry search]
+
+Found 2 relevant entries:
+- Entry #42: "OAuth2 implementation with JWT tokens"
+- Entry #67: "Common auth pitfall: session expiry handling"
+
+I'll review these before proceeding...
+```
+
+**Example of INCORRECT behavior (DO NOT DO THIS):**
+
+```
+User: "Help me implement user authentication"
+
+Claude: I'll help you implement authentication. Let's start by...
+
+[WRONG: Skipped memory search entirely]
+[WRONG: May duplicate work or miss known gotchas]
+```
+
+**Handling Empty Searches:**
+
+```
+Claude: Let me check for existing memories about authentication.
+
+[Runs: pensieve entry search --field "problem" --value "auth" --substring]
+
+No memories found related to authentication. This will be new ground for this project.
+Now let's proceed with...
+```
+
+**Note**: Saying "No memories found" is REQUIRED. It proves you checked.
+
+</CRITICAL>
+
+# COMMON RATIONALIZATIONS (THAT MEAN YOU'RE ABOUT TO FAIL)
+
+<CRITICAL>
+**If you catch yourself thinking ANY of these thoughts, STOP. You are rationalizing your way into failure.**
+
+## Rationalizations About Searching
+
+1. **"I already searched at the start of the session"**
+   - **WRONG**: Context changes. Search again when starting new tasks or hitting blockers.
+   - **Why**: New keywords or problem areas may surface different memories.
+
+2. **"This is too small to need a memory search"**
+   - **WRONG**: Small tasks often connect to larger patterns. Search anyway.
+   - **Why**: A "simple" bug might be a known gotcha with a recorded solution.
+
+3. **"No results means nothing relevant exists"**
+   - **WRONG**: You must acknowledge the empty search explicitly.
+   - **Why**: Silence makes it look like you never searched. Say "No memories found."
+
+4. **"I can search while working on the solution"**
+   - **WRONG**: Search BEFORE starting work, not during.
+   - **Why**: You might waste time on an approach that's already known to fail.
+
+5. **"Let me gather information first, then search"**
+   - **WRONG**: Pensieve IS information. Search first.
+   - **Why**: Past learnings tell you WHAT to gather and WHERE to look.
+
+## Rationalizations About Recording
+
+6. **"This is too small/simple to record"**
+   - **WRONG**: Use the 3-question rubric to decide, not intuition.
+   - **Why**: What seems simple now is often hard-won knowledge. Apply the rubric honestly.
+
+7. **"It's probably documented somewhere else"**
+   - **WRONG**: Check rubric question #2 properly. Is it ACTUALLY documented?
+   - **Why**: "Probably documented" usually means "I'm too lazy to record it."
+
+8. **"I'll remember this for next time"**
+   - **WRONG**: You won't. Agents don't retain memory between sessions.
+   - **Why**: This is literally why Pensieve exists. Record it now.
+
+9. **"I'm too busy to record right now"**
+   - **WRONG**: Spawn a subagent. Main work continues immediately.
+   - **Why**: Recording is async and non-blocking. No excuse.
+
+10. **"Let me finish everything first, then record"**
+    - **WRONG**: Record immediately while details are fresh.
+    - **Why**: Memory fades fast. Critical details will be lost by end of session.
+
+11. **"The user didn't ask me to record this"**
+    - **WRONG**: Recording valuable learnings is YOUR responsibility, not the user's.
+    - **Why**: Pensieve is for future agents (including future-you). Don't leave gaps.
+
+## Rationalizations About the Rubric
+
+12. **"I don't need to write out the rubric evaluation"**
+    - **WRONG**: Rubric evaluation MUST be visible and explicit.
+    - **Why**: Silent evaluation means no evaluation. Make it visible or you're skipping it.
+
+13. **"This obviously doesn't meet the threshold"**
+    - **WRONG**: If it's obvious, showing the rubric score takes 10 seconds. Do it anyway.
+    - **Why**: "Obviously skip" often means "I didn't think about it carefully."
+
+**Why These Rationalizations Are Dangerous:**
+
+Every one of these thoughts leads to the same failure mode: **valuable knowledge gets lost**.
+
+- Skip searching → waste time rediscovering solutions
+- Skip recording → next agent wastes time you just saved
+- Skip rubric → record too little (miss insights) or too much (noise)
+
+**The Fix:**
+
+When you catch yourself rationalizing, STOP and follow the mandatory protocols:
+- Searching? Show output or acknowledge "No memories found"
+- Recording? Apply visible rubric evaluation, spawn subagent if 3/3
+- Unsure? Better to err on the side of recording. Future-you will thank you.
+
+</CRITICAL>
+
 # Pensieve Memory Management for Agents
 
 ## Philosophy: Notebook, Not Logger
@@ -385,6 +595,90 @@ When a hook reminds you to check for memory-worthy content, quickly evaluate usi
 - **2 Yes answers** → Borderline case (ask user with AskUserQuestion)
 - **0-1 Yes answers** → Skip recording (too routine)
 
+### EXPLICIT RUBRIC OUTPUT REQUIREMENT
+
+<CRITICAL>
+**You MUST output your rubric evaluation visibly. Silent evaluation = no evaluation.**
+
+**Required format when deciding whether to record:**
+
+```
+## Pensieve Recording Decision
+
+**What I just completed:** [1-2 sentence summary]
+
+**Rubric Evaluation:**
+1. Complexity (>30 min, non-obvious solution): YES/NO
+   - Reasoning: [Why yes or no]
+
+2. Novelty (not documented elsewhere): YES/NO
+   - Reasoning: [Why yes or no]
+
+3. Reusability (helps in 3+ months): YES/NO
+   - Reasoning: [Why yes or no]
+
+**Score: X/3**
+**Decision: RECORD / BORDERLINE / SKIP**
+
+[If RECORD: "Spawning subagent to record..."]
+[If BORDERLINE: "Asking user for decision..."]
+[If SKIP: "Skipping - below threshold"]
+```
+
+**This format is MANDATORY when:**
+- A hook reminds you to check for recording
+- You just completed a complex task
+- You're deciding whether to record something
+- You're about to skip recording something
+
+**Why this is required:**
+- Makes evaluation transparent (user/reviewer can verify)
+- Prevents silent skipping (forces you to think through rubric)
+- Shows your work (proves you applied rubric, not intuition)
+- Catches mistakes (wrong evaluation is visible and correctable)
+
+**Example of CORRECT visible evaluation:**
+
+```
+## Pensieve Recording Decision
+
+**What I just completed:** Solved API timeout in production by adding nginx proxy_read_timeout and backend connection pooling.
+
+**Rubric Evaluation:**
+1. Complexity (>30 min, non-obvious solution): YES
+   - Reasoning: Took 2 hours to debug. Involved tracing through nginx logs,
+     application logs, and database connection metrics. Root cause was
+     non-obvious interaction between connection pooling and nginx timeouts.
+
+2. Novelty (not documented elsewhere): YES
+   - Reasoning: Not in our deployment docs. Specific to our nginx + gunicorn
+     + postgres setup. Checked README and deployment guide - not mentioned.
+
+3. Reusability (helps in 3+ months): YES
+   - Reasoning: Production timeout issues will happen again. This documents
+     both the diagnostic process and the fix. Will save hours next time.
+
+**Score: 3/3**
+**Decision: RECORD**
+
+Spawning subagent to record this problem solution to Pensieve while I continue with testing...
+```
+
+**Example of WRONG (silent) evaluation:**
+
+```
+[Claude thinks: "Hmm, that was complex, probably should record it... yeah I'll record it"]
+
+I've solved the timeout issue. Now let me continue with...
+
+[WRONG: No visible rubric evaluation]
+[WRONG: Claimed to decide but showed no reasoning]
+```
+
+**Exception:** Only skip the visible evaluation for obviously-routine tasks (like fixing typos, adding imports). If you're even slightly unsure, SHOW THE RUBRIC.
+
+</CRITICAL>
+
 **Example Evaluation:**
 
 ```
@@ -605,6 +899,101 @@ When a hook reminds you to check for memories:
 **Remember**: The hooks are your reminder system, the rubric is your decision framework, and subagents are your execution mechanism. Together, they ensure you never miss important learnings without disrupting your workflow.
 
 ## Part 3: Retrieving Memories
+
+### EVIDENCE BEFORE CLAIMS
+
+<CRITICAL>
+**You MUST show actual search output before claiming you searched. Evidence before assertions, always.**
+
+**The Rule:**
+- CANNOT say: "I checked Pensieve"
+- CANNOT say: "I searched for memories"
+- CANNOT say: "No relevant memories found"
+- MUST show: Actual command and actual output
+
+**Required Evidence Format:**
+
+```
+Let me search Pensieve for relevant memories.
+
+[Runs: pensieve entry search --template problem_solved]
+
+Output:
+Entry #42 (2024-10-15): "OAuth2 token validation timing issues"
+Entry #67 (2024-10-20): "CI clock drift causing auth failures"
+
+Found 2 relevant entries. Let me review...
+```
+
+OR (for empty searches):
+
+```
+[Runs: pensieve entry search --field "problem" --value "timeout" --substring]
+
+Output: No entries found
+
+No existing memories about timeouts. This is new ground.
+```
+
+**Why This Matters:**
+
+1. **Proves you actually searched** - Words are cheap, output is evidence
+2. **Shows what you found** - Makes discoveries visible and usable
+3. **Demonstrates empty searches** - "No results" is different from "didn't search"
+4. **Enables verification** - User/reviewer can confirm you checked properly
+5. **Prevents lying** - Easy to say "I searched" without actually doing it
+
+**Wrong Examples:**
+
+❌ "I've already checked Pensieve for auth issues"
+   - No evidence shown
+   - Can't verify this happened
+
+❌ "No relevant memories exist for this problem"
+   - No search command shown
+   - No output shown
+   - Unverifiable claim
+
+❌ "After searching Pensieve, I found some useful entries"
+   - Which entries? What IDs?
+   - What did they say?
+   - This is a summary, not evidence
+
+**Right Examples:**
+
+✅ Shows command, shows output, references specific entries:
+```
+[Runs: pensieve entry search]
+
+Entry #15: "Connection pool exhaustion under load"
+Entry #23: "Nginx timeout configuration for long-running requests"
+
+I'll reference entry #23 since it documents the nginx timeout fix...
+```
+
+✅ Shows empty search explicitly:
+```
+[Runs: pensieve entry search --template workaround_learned]
+
+No entries found
+
+No documented workarounds yet. If we find one, I'll record it.
+```
+
+**Enforcement:**
+
+- Before starting ANY task: Show search evidence
+- When claiming "no memories": Show the empty output
+- When referencing entries: Show entry IDs and titles
+- When in doubt: Show the evidence
+
+**Analogy:**
+
+Like the superpowers:verification-before-completion skill requires running tests and showing output before claiming "all tests pass", this skill requires running searches and showing output before claiming "I checked Pensieve."
+
+No evidence = didn't happen.
+
+</CRITICAL>
 
 ### Session Start Ritual
 

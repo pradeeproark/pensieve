@@ -56,23 +56,48 @@ def main():
         # Build system message based on todo states
         messages = []
 
-        # Reminder to search Pensieve when starting work
+        # MANDATORY reminder to search Pensieve when starting work
         if has_pending:
-            messages.append("""💡 TIP: Search Pensieve for related memories before starting work
-   Quick: pensieve entry search
-   Or use the memory-management skill for guided search""")
+            messages.append("""🔴 MANDATORY: Search Pensieve before starting work
 
-        # Reminder to record learnings when completing work
+BEFORE proceeding with ANY pending task, you MUST:
+1. Run: pensieve entry search
+2. Show the output (even if empty)
+3. Acknowledge findings or state "No memories found"
+
+This is NOT optional. Evidence before claims - show the search output.
+
+Use memory-management skill for detailed guidance.""")
+
+        # MANDATORY reminder to evaluate and record learnings
         if has_completed:
-            messages.append("""✅ MEMORY CHECK: Consider recording learnings to Pensieve
+            messages.append("""✅ RECORDING DECISION REQUIRED: Apply visible rubric evaluation
 
-Apply the 3-question rubric:
-   1. Complexity: Did this take >30 minutes or involve non-obvious solution?
-   2. Novelty: Is this documented elsewhere (README, comments, obvious from code)?
-   3. Reusability: Will this help in 3+ months, or on similar tasks?
+You MUST output your rubric evaluation visibly (silent evaluation = no evaluation):
 
-If 2/3 or 3/3 YES: Use memory-management skill to record to Pensieve
-Templates: problem_solved, pattern_discovered, workaround_learned, key_resource""")
+## Pensieve Recording Decision
+
+**What I just completed:** [1-2 sentence summary]
+
+**Rubric Evaluation:**
+1. Complexity (>30 min, non-obvious solution): YES/NO
+   - Reasoning: [Why yes or no]
+
+2. Novelty (not documented elsewhere): YES/NO
+   - Reasoning: [Why yes or no]
+
+3. Reusability (helps in 3+ months): YES/NO
+   - Reasoning: [Why yes or no]
+
+**Score: X/3**
+**Decision: RECORD / BORDERLINE / SKIP**
+
+- Score 3/3: Spawn subagent to record immediately
+- Score 2/3: Ask user with AskUserQuestion
+- Score 0-1/3: Acknowledge skip with visible reasoning
+
+Use memory-management skill for templates and detailed guidance.
+Exception: Skip rubric for obviously-routine tasks (typos, imports).""")
 
         # Build response - allow todos through unchanged, just add reminders
         output = {
