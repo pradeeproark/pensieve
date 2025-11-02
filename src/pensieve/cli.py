@@ -40,6 +40,31 @@ from pensieve.queries import search_entries
 from pensieve.validators import ValidationError
 
 
+class AliasedGroup(click.Group):
+    """Custom click Group that supports command aliases.
+
+    Allows commands to be invoked using alternative names (e.g., 'get' for 'show').
+    """
+
+    def get_command(self, ctx: click.Context, cmd_name: str) -> click.Command | None:
+        """Resolve command name, supporting aliases.
+
+        Args:
+            ctx: Click context
+            cmd_name: Command name or alias
+
+        Returns:
+            Command object if found, None otherwise
+        """
+        # Map aliases to primary command names
+        aliases = {
+            'get': 'show',
+        }
+        # Resolve alias to primary command name
+        resolved_name = aliases.get(cmd_name, cmd_name)
+        return super().get_command(ctx, resolved_name)
+
+
 @click.group()
 @click.version_option(version=__version__)
 def main() -> None:
@@ -50,7 +75,7 @@ def main() -> None:
 # Template commands
 
 
-@main.group()
+@main.group(cls=AliasedGroup)
 def template() -> None:
     """Manage templates."""
     pass
@@ -279,7 +304,7 @@ def template_export(name: str, output: str | None) -> None:
 # Entry commands
 
 
-@main.group()
+@main.group(cls=AliasedGroup)
 def entry() -> None:
     """Manage journal entries."""
     pass
@@ -289,11 +314,13 @@ def entry() -> None:
 @click.argument("template_name")
 @click.option("--project", required=False, help="Project directory path (auto-detected if omitted)")
 @click.option("--field", "fields", multiple=True, help="Field value key=value (repeatable)")
+@click.option("--tag", "tags", multiple=True, help="Tag to add to entry (repeatable)")
 @click.option("--from-file", "file_path", help="Load entry from JSON file")
 def entry_create(
     template_name: str,
     project: str | None,
     fields: tuple[str, ...],
+    tags: tuple[str, ...],
     file_path: str | None
 ) -> None:
     """Create a new journal entry (non-interactive).
@@ -329,6 +356,9 @@ def entry_create(
         # Validate mutual exclusivity
         if file_path and fields:
             click.echo("Error: Cannot use both --field and --from-file. Choose one input method.", err=True)
+            sys.exit(1)
+        if file_path and tags:
+            click.echo("Error: Cannot use both --tag and --from-file. Tags must be in the JSON file or CLI, not both.", err=True)
             sys.exit(1)
 
         # Get template
@@ -385,17 +415,23 @@ def entry_create(
             template_version=template.version,
             agent=agent,
             project=normalized_project,
-            field_values=field_values
+            field_values=field_values,
+            tags=list(tags) if tags else []
         )
 
         db.create_entry(entry, template)
         click.echo(f"\n✓ Created entry: {entry.id}")
         click.echo(f"  Template: {template_name}")
         click.echo(f"  Project: {expand_project_path(entry.project)}")
+        if tags:
+            click.echo(f"  Tags: {', '.join(tags)}")
         click.echo(f"\n💡 Tip: Link this entry to related memories using:")
         click.echo(f"  pensieve entry link {entry.id} <other-id> --type <supersedes|relates_to|augments|deprecates>")
         click.echo(f"\n💡 Other management options:")
-        click.echo(f"  • Add tags:                 pensieve entry tag {entry.id} --add <tag>")
+        if not tags:
+            click.echo(f"  • Add tags:                 pensieve entry tag {entry.id} --add <tag>")
+        else:
+            click.echo(f"  • Manage tags:              pensieve entry tag {entry.id} --add/--remove <tag>")
         click.echo(f"  • View this entry:          pensieve entry show {entry.id}")
         click.echo(f"  • View with links:          pensieve entry show {entry.id} --follow-links")
 
@@ -573,6 +609,7 @@ def entry_show(entry_id: str, follow_links: bool, depth: int) -> None:
 @click.option("--template", help="Filter by template name")
 @click.option("--agent", help="Filter by agent name")
 @click.option("--project", help="Filter by project path (substring match)")
+@click.option("--all-projects", is_flag=True, help="Search across all projects instead of auto-detected current project")
 @click.option("--from", "from_date", help="Filter from date (ISO format)")
 @click.option("--to", "to_date", help="Filter to date (ISO format)")
 @click.option("--field", help="Field name to search")
@@ -587,6 +624,7 @@ def entry_search(
     template: str | None,
     agent: str | None,
     project: str | None,
+    all_projects: bool,
     from_date: str | None,
     to_date: str | None,
     field: str | None,
@@ -598,7 +636,11 @@ def entry_search(
     linked_from: str | None,
     limit: int
 ) -> None:
-    """Search journal entries."""
+    """Search journal entries.
+
+    By default, searches are limited to the current project (auto-detected from git repository
+    or current directory). Use --all-projects to search across all projects.
+    """
     db = Database()
 
     try:
@@ -609,6 +651,13 @@ def entry_search(
         if value and not field:
             click.echo("Error: --field is required when --value is specified", err=True)
             sys.exit(1)
+
+        # Handle project filtering with auto-detection
+        auto_detected = False
+        if not all_projects and project is None:
+            # Auto-detect project if not searching all projects and no explicit project provided
+            project = auto_detect_project()
+            auto_detected = True
 
         # Normalize project search input if provided
         if project:
@@ -649,10 +698,21 @@ def entry_search(
         )
 
         if not results:
+            # Show info about applied filters when no results
+            if auto_detected:
+                expanded = expand_project_path(project)
+                click.echo(f"ℹ️  INFO: Searched in auto-detected project: {expanded}")
+                click.echo(f"    Use --all-projects to search across all projects\n")
             click.echo("No entries found matching criteria")
             return
 
-        click.echo(f"\nFound {len(results)} entry(ies):\n")
+        # Show info message when project filter is auto-applied
+        if auto_detected:
+            expanded = expand_project_path(project)
+            click.echo(f"\nℹ️  INFO: Searching in auto-detected project: {expanded}")
+            click.echo(f"    Use --all-projects to search across all projects\n")
+
+        click.echo(f"Found {len(results)} entry(ies):\n")
 
         for e in results:
             template_obj = db.get_template_by_id(e.template_id)
