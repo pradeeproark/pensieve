@@ -11,13 +11,24 @@
         ]
       }
     ],
-    "Stop": [
+    "SessionEnd": [
       {
         "matcher": "*",
         "hooks": [
           {
             "type": "command",
-            "command": "~/.claude/hooks/memory-check.sh"
+            "command": "~/.claude/hooks/session-end-memory-check.sh"
+          }
+        ]
+      }
+    ],
+    "PostToolUse": [
+      {
+        "matcher": "Bash",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "~/.claude/hooks/git-commit-memory-check.sh"
           }
         ]
       }

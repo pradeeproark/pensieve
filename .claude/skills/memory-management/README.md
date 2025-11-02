@@ -14,9 +14,9 @@ The memory-management skill provides:
 ## Files
 
 - **SKILL.md** - Main skill definition (auto-loaded by Claude Code)
-- **HOOKS_SETUP.md** - Documentation for configuring hooks
 - **TEST_SCENARIOS.md** - Test scenarios for validating the skill
 - **EXAMPLE_SETTINGS.json** - Example Claude Code settings with hooks configured
+- **README.md** - This file
 
 ## Deployment
 
@@ -66,23 +66,30 @@ git log --oneline .claude/skills/memory-management/
 
 ## Integration with Hooks
 
-This skill works best with the Pensieve hooks installed. The hooks provide:
-- Session start reminders to search memories
-- Todo-based reminders with rubric template injection
-- Session end prompts to record learnings
+This skill works best with the Pensieve hooks installed. The streamlined 3-hook system provides:
+- **Session start**: MANDATORY protocol requiring memory search before starting work
+- **Session end**: Reminder to record learnings before context is lost
+- **Git commits**: Prompts to evaluate if commit contains recordable learnings using 3-question rubric
 
-Install hooks with `./install-hooks.sh` or use the unified `./install.sh`.
+Install hooks with `./install-hooks.sh`. See `hooks/README.md` for complete documentation.
 
 ## Testing
 
 See `TEST_SCENARIOS.md` for test cases to verify the skill works correctly.
 
-## Superpowers Enforcement
+## Recent Updates
 
-As of the October 2025 update, this skill now uses **superpowers-style enforcement**:
+**November 2025 - Simplified & Flexible**:
+- Removed detailed template examples and field specifications
+- Added "Discovering Pensieve Capabilities" section pointing to `--help`
+- Removed hook-specific workflows (Part 2.5)
+- Kept core: 3-question rubric, subagent templates, protocols, anti-rationalizations
+- Result: ~780 lines removed, more flexible for Pensieve changes
+
+**October 2025 - Superpowers Enforcement**:
 - Mandatory protocols (not suggestions)
 - Evidence requirements (must show search output)
 - Explicit rubric evaluation (silent evaluation = no evaluation)
 - Anti-rationalization warnings (13 common failure patterns)
 
-This transforms the skill from "well-documented suggestions" to "enforced process with verification gates."
+This skill uses enforced processes with verification gates rather than optional suggestions.
