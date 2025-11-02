@@ -392,11 +392,12 @@ def entry_create(
         click.echo(f"\n✓ Created entry: {entry.id}")
         click.echo(f"  Template: {template_name}")
         click.echo(f"  Project: {expand_project_path(entry.project)}")
-        click.echo(f"\n💡 Management options:")
-        click.echo(f"  • Link to related entries:  pensieve entry link {entry.id} <other-id> --type <type>")
+        click.echo(f"\n💡 Tip: Link this entry to related memories using:")
+        click.echo(f"  pensieve entry link {entry.id} <other-id> --type <supersedes|relates_to|augments|deprecates>")
+        click.echo(f"\n💡 Other management options:")
         click.echo(f"  • Add tags:                 pensieve entry tag {entry.id} --add <tag>")
-        click.echo(f"  • Supersede old entry:      pensieve entry link {entry.id} <old-id> --type supersedes")
-        click.echo(f"\n  Run 'pensieve entry show {entry.id}' to view this entry")
+        click.echo(f"  • View this entry:          pensieve entry show {entry.id}")
+        click.echo(f"  • View with links:          pensieve entry show {entry.id} --follow-links")
 
     except DatabaseError as e:
         click.echo(f"Error: {e}", err=True)
