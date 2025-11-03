@@ -264,6 +264,74 @@ Record a memory when you've learned something **non-obvious** that:
 - Temporary debugging notes
 - No context or explanation
 
+### Tags and Links: Making Memories Discoverable
+
+<CRITICAL>
+**ALWAYS add tags when creating entries. Tags are not optional.**
+
+Tags and links are essential for making memories discoverable and understanding relationships between learnings.
+</CRITICAL>
+
+**Tags: Organize for Discovery**
+
+Tags help you (and future agents) find relevant memories quickly. When creating an entry, ALWAYS add 2-5 descriptive tags.
+
+**Good tag examples:**
+- Technology/tool: `oauth`, `redis`, `pytest`, `ansible`, `docker`
+- Problem category: `production-bug`, `performance`, `security`, `configuration-drift`
+- Domain: `authentication`, `deployment`, `observability`, `testing`
+- Severity: `critical`, `incident`, `workaround`
+- Resolution: `resolved`, `ongoing`, `blocking`
+
+**How to add tags when creating entries:**
+```bash
+# Add tags inline when creating entry
+pensieve entry create problem_solved \
+  --field problem="OAuth token expiry issues" \
+  --field solution="Added 120s clock skew tolerance" \
+  --tag oauth \
+  --tag production-bug \
+  --tag authentication
+
+# Or in JSON file:
+{
+  "problem": "...",
+  "solution": "...",
+  "tags": ["oauth", "production-bug", "authentication"]
+}
+```
+
+**Links: Connect Related Learnings**
+
+Use links to build a knowledge graph showing how memories relate:
+
+**Link types and when to use them:**
+- `supersedes`: New solution replaces old approach (marks old entry as superseded)
+- `relates_to`: Related context or parallel issues
+- `augments`: Adds more detail to existing entry
+- `deprecates`: Solution no longer valid (marks target as deprecated)
+
+**After creating a new entry, link it to related memories:**
+```bash
+# Create new entry
+pensieve entry create problem_solved --field ... --tag ...
+
+# Link to related entries
+pensieve entry link <new-entry-id> <old-entry-id> --type supersedes
+pensieve entry link <new-entry-id> <related-id> --type relates_to
+```
+
+**Why tags and links matter:**
+1. **Discoverability**: `pensieve entry search --tag oauth` finds all OAuth-related learnings
+2. **Context**: Links show how solutions evolved over time
+3. **Patterns**: Recurring tags reveal systemic issues
+4. **Navigation**: `pensieve entry show <id> --follow-links` traverses knowledge graph
+
+**MANDATORY: When recording, ask yourself:**
+- [ ] What tags describe this? (technology, category, domain)
+- [ ] Does this relate to existing entries? (search first to check)
+- [ ] Should I link this to previous learnings?
+
 ## Part 2: Non-Disruptive Recording with Subagents
 
 **IMPORTANT**: When you're in the middle of work and identify something worth recording, DON'T stop what you're doing. Use a subagent to record asynchronously.
@@ -296,23 +364,34 @@ Task(
   - [Detail 2]
   - [Detail 3]
 
+  **Related entries (if any):**
+  - [Entry ID and why it's related]
+
   **Your task:**
   1. Determine the most appropriate template using: pensieve template list
   2. Review the template structure: pensieve template show <name>
-  3. Create the entry with all relevant fields
-  4. Verify the entry was created successfully
-  5. Report back with the entry ID
+  3. Create the entry with all relevant fields AND 2-5 descriptive tags
+     - Use --tag for each tag (e.g., --tag oauth --tag production-bug)
+  4. If related entries were provided, create links using:
+     - pensieve entry link <new-id> <related-id> --type <link-type>
+  5. Verify the entry was created successfully
+  6. Report back with the entry ID and tags used
 
-  Do NOT do anything else. Just record this memory and confirm.
+  CRITICAL: Do NOT skip tags. Every entry must have at least 2 tags.
+
+  Do NOT do anything else. Just record this memory with tags/links and confirm.
   """
 )
 ```
 
 **Adapt the context section** to include:
-- For problems: problem, root cause, solution, files changed, learning
-- For patterns: name, description, location, why useful, example
-- For workarounds: issue, workaround, why needed, reference
-- For resources: name, URL, what it covers, when useful
+- For problems: problem, root cause, solution, files changed, learning, tags (technology, category, domain)
+- For patterns: name, description, location, why useful, example, tags (domain, pattern-type)
+- For workarounds: issue, workaround, why needed, reference, tags (tool, problem-type)
+- For resources: name, URL, what it covers, when useful, tags (technology, documentation)
+
+**IMPORTANT: Always search first to find related entries:**
+Before spawning the subagent, run `pensieve entry search --tag <relevant-tag>` to check for related entries. Include any relevant entry IDs in the prompt so the subagent can create links.
 
 ## Part 3: Retrieving Memories
 
@@ -375,12 +454,21 @@ pensieve entry search
 # Search by template type
 pensieve entry search --template <name>
 
+# Search by tags (most useful!)
+pensieve entry search --tag oauth
+pensieve entry search --tag production-bug --tag authentication
+
 # Search by keywords (use --help to see search options)
 pensieve entry search --help
 ```
 
 **When stuck:**
-Check for existing solutions or workarounds before investigating from scratch.
+Check for existing solutions or workarounds before investigating from scratch. Use tags to narrow your search to relevant domains.
+
+**Tag-based search is powerful:**
+- `--tag oauth --tag redis` finds entries with ANY of these tags
+- `--tag production-bug` surfaces all production issues
+- `--status active` filters out deprecated solutions
 
 **Spend 2-3 minutes reading:** This refreshes context and prevents re-discovering solutions.
 
@@ -388,15 +476,39 @@ Check for existing solutions or workarounds before investigating from scratch.
 
 ### Keeping Memories Fresh
 
+<CRITICAL>
+**ALWAYS link new entries to superseded or related entries. Never leave obsolete entries unlinked.**
+</CRITICAL>
+
 **When better solutions found:**
-- DON'T delete old entry
-- DO create new entry linking to the old one
-- Explain why the new approach is better
+```bash
+# Create new entry with improved solution
+pensieve entry create problem_solved \
+  --field problem="..." \
+  --field solution="Improved approach: ..." \
+  --tag oauth --tag production-bug
+
+# Link to old entry (marks old entry as superseded)
+pensieve entry link <new-id> <old-id> --type supersedes
+```
 
 **When workarounds become obsolete:**
-- Create entry marking it as resolved/deprecated
-- Reference the old entry
-- Explain what changed
+```bash
+# Create resolution entry
+pensieve entry create problem_solved \
+  --field problem="Original workaround no longer needed" \
+  --field solution="Fixed in library version 2.3" \
+  --tag oauth --tag resolved
+
+# Deprecate old workaround
+pensieve entry link <new-id> <workaround-id> --type deprecates
+```
+
+**Why linking matters:**
+- Shows evolution of solutions over time
+- Prevents using outdated approaches
+- `pensieve entry show <id> --follow-links` reveals full context
+- Old entries automatically marked as superseded/deprecated
 
 ### Quality Checklist
 
@@ -406,6 +518,8 @@ Before recording, verify:
 - [ ] **Contextualized**: Explains "why" not just "what"
 - [ ] **Future-proof**: Will make sense 6 months from now
 - [ ] **Non-obvious**: Not something easily Googled or in docs
+- [ ] **Tagged**: Has 2-5 descriptive tags for discoverability
+- [ ] **Linked**: Connected to related entries if they exist
 
 ## Part 5: Anti-Patterns - What NOT to Do
 
@@ -469,12 +583,20 @@ conftest.py location when fixtures aren't found."
 - ✅ Record within 5 minutes of solving/discovering
 - ❌ Wait until end of session (you'll forget key details)
 
-## Summary: The 3 Rules of Pensieve
+## Summary: The 5 Rules of Pensieve
 
 1. **Quality Over Quantity**: Record insights, not actions
 2. **Context Is King**: Always include the "why"
 3. **Future-Focused**: Ask "Will this save time later?"
+4. **Always Tag**: Every entry needs 2-5 descriptive tags for discoverability
+5. **Link Related Memories**: Build a knowledge graph showing how learnings connect
 
-**Remember**: A well-maintained Pensieve with 10 high-quality entries is more valuable than 100 low-signal entries.
+**Remember**: A well-maintained Pensieve with 10 high-quality, tagged, and linked entries is more valuable than 100 low-signal entries.
+
+**The mandatory checklist for every recording:**
+- [ ] Passes 3-question rubric (3/3 or 2/3)
+- [ ] Has 2-5 descriptive tags
+- [ ] Linked to related entries (if any exist)
+- [ ] Contains concrete details and "why"
 
 Use this skill consistently, and Pensieve will become your most valuable project resource.
