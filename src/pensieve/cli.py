@@ -59,6 +59,7 @@ class AliasedGroup(click.Group):
         # Map aliases to primary command names
         aliases = {
             'get': 'show',
+            'add': 'create',
         }
         # Resolve alias to primary command name
         resolved_name = aliases.get(cmd_name, cmd_name)
