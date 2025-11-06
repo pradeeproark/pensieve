@@ -1,0 +1,99 @@
+# Pre-commit hooks for Pensieve - STRICT LOCAL CONFIGURATION EXAMPLE
+#
+# This is an example of a stricter pre-commit configuration for local development.
+# Copy this file to .pre-commit-config.local.yaml and customize to your preferences.
+#
+# Usage:
+#   cp .pre-commit-config.local.yaml.example .pre-commit-config.local.yaml
+#   pre-commit run --config .pre-commit-config.local.yaml --all-files
+#
+# Or use the helper script:
+#   ./scripts/pre-commit-strict.sh
+#
+# Note: .pre-commit-config.local.yaml is gitignored and stays on your machine only.
+
+repos:
+  # === STANDARD HOOKS (same as main config) ===
+
+  # File quality checks
+  - repo: https://github.com/pre-commit/pre-commit-hooks
+    rev: v4.5.0
+    hooks:
+      # Auto-fix file issues
+      - id: trailing-whitespace
+      - id: end-of-file-fixer
+
+      # Validate file formats
+      - id: check-yaml
+      - id: check-toml
+      - id: check-json
+
+      # Prevent common mistakes
+      - id: check-merge-conflict
+      - id: check-added-large-files
+        args: ['--maxkb=500']
+      - id: check-case-conflict
+
+      # Security
+      - id: detect-private-key
+
+      # === ADDITIONAL STRICT CHECKS ===
+
+      # Block debug statements (print, pdb, breakpoint)
+      - id: debug-statements
+
+      # Validate Python syntax
+      - id: check-ast
+
+      # Enforce docstring placement
+      - id: check-docstring-first
+
+  # Python code formatting (auto-fix)
+  - repo: https://github.com/psf/black
+    rev: 24.1.1
+    hooks:
+      - id: black
+        language_version: python3.11
+
+  # Python linting (auto-fix safe issues)
+  - repo: https://github.com/astral-sh/ruff-pre-commit
+    rev: v0.2.1
+    hooks:
+      - id: ruff
+        args: [--fix, --exit-non-zero-on-fix]
+
+  # Type checking
+  - repo: https://github.com/pre-commit/mirrors-mypy
+    rev: v1.8.0
+    hooks:
+      - id: mypy
+        additional_dependencies:
+          - types-python-dateutil
+          - pydantic>=2.5.0
+        args: [--strict, --ignore-missing-imports]
+
+  # === STRICT-ONLY: RUN TESTS ===
+  # Warning: This makes commits slower (~15-30 seconds)
+  # Uncomment to enable:
+
+  # - repo: local
+  #   hooks:
+  #     - id: pytest
+  #       name: pytest
+  #       entry: pytest
+  #       language: system
+  #       pass_filenames: false
+  #       always_run: true
+  #       stages: [commit]
+
+  # === CUSTOM PROJECT-SPECIFIC CHECKS ===
+  # Add your own hooks here, for example:
+
+  # - repo: local
+  #   hooks:
+  #     - id: no-print-in-production
+  #       name: Block print() in src/ (use logging)
+  #       entry: print\(
+  #       language: pygrep
+  #       files: ^src/
+  #       exclude: (test_|__init__|cli\.py)
