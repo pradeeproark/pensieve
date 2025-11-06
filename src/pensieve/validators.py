@@ -92,6 +92,13 @@ def validate_url(value: Any, constraints: FieldConstraints) -> str:
     if not isinstance(value, str):
         raise ValidationError(f"Invalid URL value: {value}. Expected string.")
 
+    # Explicitly reject file:// URLs - use file_reference field type instead
+    if value.lower().startswith("file://"):
+        raise ValidationError(
+            f"file:// URLs are not supported in url fields. "
+            f"Use the file_reference field type for local files."
+        )
+
     # Validate URL format
     if not validators.url(value):
         raise ValidationError(f"Invalid URL format: {value}")

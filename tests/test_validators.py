@@ -80,7 +80,15 @@ class TestValidateUrl:
         constraints = FieldConstraints()
         assert validate_url("https://example.com", constraints) == "https://example.com"
         assert validate_url("http://example.com/path", constraints) == "http://example.com/path"
-        assert validate_url("file:///path/to/file", constraints) == "file:///path/to/file"
+
+    def test_file_url_rejected(self) -> None:
+        """Test that file:// URLs are explicitly rejected."""
+        constraints = FieldConstraints()
+        with pytest.raises(ValidationError) as exc_info:
+            validate_url("file:///path/to/file", constraints)
+        error_message = str(exc_info.value)
+        assert "file:// URLs are not supported" in error_message
+        assert "file_reference field type" in error_message
 
     def test_url_scheme_constraint(self) -> None:
         """Test URL scheme restrictions."""
