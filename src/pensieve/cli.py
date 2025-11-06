@@ -312,7 +312,7 @@ def entry() -> None:
 
 
 @entry.command("create")
-@click.argument("template_name")
+@click.option("--template", "template_name", required=True, help="Template name")
 @click.option("--project", required=False, help="Project directory path (auto-detected if omitted)")
 @click.option("--field", "fields", multiple=True, help="Field value key=value (repeatable)")
 @click.option("--tag", "tags", multiple=True, help="Tag to add to entry (repeatable)")
@@ -332,15 +332,15 @@ def entry_create(
     Two modes:
 
     1. Inline field values:
-       pensieve entry create problem_solved \\
+       pensieve entry create --template problem_solved \\
          --field problem="Issue description" \\
          --field solution="How it was fixed"
 
     2. From JSON file:
-       pensieve entry create problem_solved --from-file entry.json
+       pensieve entry create --template problem_solved --from-file entry.json
 
     Override project:
-       pensieve entry create problem_solved --project /custom/path --field "..."
+       pensieve entry create --template problem_solved --project /custom/path --field "..."
     """
     db = Database()
 

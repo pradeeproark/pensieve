@@ -106,8 +106,8 @@ Create a CLI tool that enables Claude Code agents to record and retrieve structu
 pensieve template create
 
 # Agent creates an entry
-pensieve entry create architecture_decision
-# Interactively fills: decision, rationale, alternatives, date
+pensieve entry create --template architecture_decision
+# Fills: decision, rationale, alternatives, date
 
 # Later, another agent searches
 pensieve entry search --template architecture_decision
@@ -116,7 +116,7 @@ pensieve entry search --template architecture_decision
 ### Use Case 2: Tracking Bug Fixes
 ```bash
 # Agent records bug fix
-pensieve entry create bug_fix
+pensieve entry create --template bug_fix
 # Fills: description, root cause, file location, timestamp
 
 # Search for all bugs in specific file
@@ -126,7 +126,7 @@ pensieve entry search --template bug_fix --field fix_location="src/auth.py"
 ### Use Case 3: Documenting Patterns
 ```bash
 # Agent discovers a pattern
-pensieve entry create pattern_discovered
+pensieve entry create --template pattern_discovered
 # Fills: pattern name, use case, code location, docs URL
 
 # Export all patterns for documentation

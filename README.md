@@ -61,7 +61,7 @@ pensieve template create problem_solved \
 
 **Inline field values:**
 ```bash
-pensieve entry create problem_solved \
+pensieve entry create --template problem_solved \
   --field problem="Authentication failing in CI" \
   --field solution="Added environment variable" \
   --field learned="Always check CI config"
@@ -69,7 +69,7 @@ pensieve entry create problem_solved \
 
 **From JSON file:**
 ```bash
-pensieve entry create problem_solved \
+pensieve entry create --template problem_solved \
   --from-file entry.json
 ```
 
@@ -104,8 +104,8 @@ pensieve entry search --field problem --value "authentication" --substring
 - `pensieve template import <file>` - Import template from JSON
 
 ### Entries
-- `pensieve entry create <template> --field key=value [--field ...]` - Create entry with inline values (project auto-detected)
-- `pensieve entry create <template> --from-file entry.json` - Create entry from JSON (project auto-detected)
+- `pensieve entry create --template <template> --field key=value [--field ...]` - Create entry with inline values (project auto-detected)
+- `pensieve entry create --template <template> --from-file entry.json` - Create entry from JSON (project auto-detected)
 - `pensieve entry list` - List recent entries
 - `pensieve entry show <id>` - Show entry details
 - `pensieve entry search` - Search entries with filters
