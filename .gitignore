@@ -20,6 +20,12 @@ htmlcov/
 *.swo
 
 
+# Local planning and notes
+.planning/
+
+# Pre-commit local configuration
+.pre-commit-config.local.yaml
+
 # Database
 *.db
 *.db-journal
