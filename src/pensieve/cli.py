@@ -3,9 +3,7 @@
 import json
 import os
 import sys
-from datetime import datetime
 from pathlib import Path
-from typing import Any
 from uuid import UUID
 
 import click
@@ -58,8 +56,8 @@ class AliasedGroup(click.Group):
         """
         # Map aliases to primary command names
         aliases = {
-            'get': 'show',
-            'add': 'create',
+            "get": "show",
+            "add": "create",
         }
         # Resolve alias to primary command name
         resolved_name = aliases.get(cmd_name, cmd_name)
@@ -89,11 +87,7 @@ def template() -> None:
 @click.option("--field", "fields", multiple=True, help="Field definition (repeatable)")
 @click.option("--from-file", "file_path", help="Load template from JSON file")
 def template_create(
-    name: str,
-    project: str | None,
-    description: str,
-    fields: tuple[str, ...],
-    file_path: str | None
+    name: str, project: str | None, description: str, fields: tuple[str, ...], file_path: str | None
 ) -> None:
     """Create a new template (non-interactive).
 
@@ -128,7 +122,9 @@ def template_create(
 
         # Validate mutual exclusivity
         if file_path and fields:
-            click.echo("Error: Cannot use both --field and --from-file. Choose one input method.", err=True)
+            click.echo(
+                "Error: Cannot use both --field and --from-file. Choose one input method.", err=True
+            )
             sys.exit(1)
 
         # Load from file or use inline arguments
@@ -142,13 +138,15 @@ def template_create(
                 # Parse fields from JSON
                 field_list = []
                 for field_data in data["fields"]:
-                    field_list.append(TemplateField(
-                        name=field_data["name"],
-                        type=FieldType[field_data["type"].upper()],
-                        required=field_data.get("required", False),
-                        constraints=FieldConstraints(**field_data.get("constraints", {})),
-                        description=field_data.get("description", "")
-                    ))
+                    field_list.append(
+                        TemplateField(
+                            name=field_data["name"],
+                            type=FieldType[field_data["type"].upper()],
+                            required=field_data.get("required", False),
+                            constraints=FieldConstraints(**field_data.get("constraints", {})),
+                            description=field_data.get("description", ""),
+                        )
+                    )
             except (FileNotFoundError, ValueError) as e:
                 click.echo(f"Error: {e}", err=True)
                 sys.exit(1)
@@ -179,7 +177,7 @@ def template_create(
             description=template_description,
             created_by=agent,
             project=normalized_project,
-            fields=field_list
+            fields=field_list,
         )
 
         db.create_template(template)
@@ -322,7 +320,7 @@ def entry_create(
     project: str | None,
     fields: tuple[str, ...],
     tags: tuple[str, ...],
-    file_path: str | None
+    file_path: str | None,
 ) -> None:
     """Create a new journal entry (non-interactive).
 
@@ -341,6 +339,10 @@ def entry_create(
 
     Override project:
        pensieve entry create --template problem_solved --project /custom/path --field "..."
+
+    IMPORTANT: Tags cannot be added during creation. Add them after:
+       1. pensieve tag list                          # Check existing tags
+       2. pensieve entry tag <entry-id> --add <tag>  # Add tags to entry
     """
     db = Database()
 
@@ -354,12 +356,36 @@ def entry_create(
         if warning:
             click.echo(warning, err=True)
 
+        # Validate that tags are not provided during creation
+        if tags:
+            click.echo("❌ Error: Cannot use --tag during entry creation.\n", err=True)
+            click.echo("📋 Proper workflow for adding tags:\n", err=True)
+            click.echo("  1. Check existing tags:  pensieve tag list", err=True)
+            click.echo(
+                "  2. Create entry:         pensieve entry create --template <name> --field ...",
+                err=True,
+            )
+            click.echo(
+                "  3. Add tags after:       pensieve entry tag <entry-id> --add <tag>\n", err=True
+            )
+            click.echo(
+                "💡 Why: This workflow encourages tag reuse and prevents tag proliferation.",
+                err=True,
+            )
+            click.echo(
+                "   Checking existing tags helps you use canonical tags vs creating duplicates.",
+                err=True,
+            )
+            click.echo(
+                "   If no suitable tag exists, you can create a new one in step 3.\n", err=True
+            )
+            sys.exit(1)
+
         # Validate mutual exclusivity
         if file_path and fields:
-            click.echo("Error: Cannot use both --field and --from-file. Choose one input method.", err=True)
-            sys.exit(1)
-        if file_path and tags:
-            click.echo("Error: Cannot use both --tag and --from-file. Tags must be in the JSON file or CLI, not both.", err=True)
+            click.echo(
+                "Error: Cannot use both --field and --from-file. Choose one input method.", err=True
+            )
             sys.exit(1)
 
         # Get template
@@ -400,7 +426,9 @@ def entry_create(
         missing_fields = required_fields - provided_fields
 
         if missing_fields:
-            click.echo(f"Error: Missing required fields: {', '.join(sorted(missing_fields))}", err=True)
+            click.echo(
+                f"Error: Missing required fields: {', '.join(sorted(missing_fields))}", err=True
+            )
             click.echo(f"\nRequired fields for template '{template_name}':")
             for field in template.fields:
                 if field.required:
@@ -410,29 +438,27 @@ def entry_create(
         # Get agent name from environment or use default
         agent = os.environ.get("USER", "unknown")
 
-        # Create entry
+        # Create entry (without tags - they must be added after creation)
         entry = JournalEntry(
             template_id=template.id,
             template_version=template.version,
             agent=agent,
             project=normalized_project,
             field_values=field_values,
-            tags=list(tags) if tags else []
+            tags=[],
         )
 
         db.create_entry(entry, template)
         click.echo(f"\n✓ Created entry: {entry.id}")
         click.echo(f"  Template: {template_name}")
         click.echo(f"  Project: {expand_project_path(entry.project)}")
-        if tags:
-            click.echo(f"  Tags: {', '.join(tags)}")
-        click.echo(f"\n💡 Tip: Link this entry to related memories using:")
-        click.echo(f"  pensieve entry link {entry.id} <other-id> --type <supersedes|relates_to|augments|deprecates>")
-        click.echo(f"\n💡 Other management options:")
-        if not tags:
-            click.echo(f"  • Add tags:                 pensieve entry tag {entry.id} --add <tag>")
-        else:
-            click.echo(f"  • Manage tags:              pensieve entry tag {entry.id} --add/--remove <tag>")
+        click.echo("\n💡 Next steps:")
+        click.echo("  1. Check existing tags:     pensieve tag list")
+        click.echo(f"  2. Add tags to this entry:  pensieve entry tag {entry.id} --add <tag>")
+        click.echo("\n💡 Other management options:")
+        click.echo(
+            f"  • Link to related entries:  pensieve entry link {entry.id} <other-id> --type <type>"
+        )
         click.echo(f"  • View this entry:          pensieve entry show {entry.id}")
         click.echo(f"  • View with links:          pensieve entry show {entry.id} --follow-links")
 
@@ -486,12 +512,14 @@ def entry_show(entry_id: str, follow_links: bool, depth: int) -> None:
     """Show entry details."""
     # Validate depth
     if depth < 1:
-        click.echo(f"Error: depth must be at least 1", err=True)
+        click.echo("Error: depth must be at least 1", err=True)
         sys.exit(1)
 
     # Warn if depth specified without follow_links
     if depth != 1 and not follow_links:
-        click.echo(f"Warning: --depth specified without --follow-links, ignoring depth parameter", err=True)
+        click.echo(
+            "Warning: --depth specified without --follow-links, ignoring depth parameter", err=True
+        )
 
     db = Database()
 
@@ -499,7 +527,7 @@ def entry_show(entry_id: str, follow_links: bool, depth: int) -> None:
         try:
             uuid = UUID(entry_id)
         except ValueError:
-            click.echo(f"Error: Invalid entry ID format", err=True)
+            click.echo("Error: Invalid entry ID format", err=True)
             sys.exit(1)
 
         e = db.get_entry_by_id(uuid)
@@ -526,30 +554,34 @@ def entry_show(entry_id: str, follow_links: bool, depth: int) -> None:
         if e.tags:
             click.echo(f"Tags: {', '.join(e.tags)}")
 
-        click.echo(f"\nField Values:\n")
+        click.echo("\nField Values:\n")
 
         for field_name, field_value in e.field_values.items():
             click.echo(f"  {field_name}: {field_value}")
 
         # Show links FROM this entry
         if e.links_from:
-            click.echo(f"\nLinks from this entry:\n")
+            click.echo("\nLinks from this entry:\n")
             for link in e.links_from:
                 target = db.get_entry_by_id(link.target_entry_id)
                 if target:
                     target_template = db.get_template_by_id(target.template_id)
                     target_template_name = target_template.name if target_template else "(unknown)"
-                    click.echo(f"  {link.link_type.value} → {link.target_entry_id} ({target_template_name})")
+                    click.echo(
+                        f"  {link.link_type.value} → {link.target_entry_id} ({target_template_name})"  # noqa: E501
+                    )
 
         # Show links TO this entry
         if e.links_to:
-            click.echo(f"\nLinks to this entry:\n")
+            click.echo("\nLinks to this entry:\n")
             for link in e.links_to:
                 source = db.get_entry_by_id(link.source_entry_id)
                 if source:
                     source_template = db.get_template_by_id(source.template_id)
                     source_template_name = source_template.name if source_template else "(unknown)"
-                    click.echo(f"  {link.link_type.value} ← {link.source_entry_id} ({source_template_name})")
+                    click.echo(
+                        f"  {link.link_type.value} ← {link.source_entry_id} ({source_template_name})"  # noqa: E501
+                    )
 
         # Handle --follow-links flag
         has_links = bool(e.links_from or e.links_to)
@@ -566,10 +598,11 @@ def entry_show(entry_id: str, follow_links: bool, depth: int) -> None:
                 for metadata in related:
                     rel_template = db.get_template_by_id(metadata.entry.template_id)
                     rel_template_name = rel_template.name if rel_template else "(unknown)"
-                    rel_expanded_project = expand_project_path(metadata.entry.project)
 
                     # Status indicator
-                    rel_status_indicator = "✓" if metadata.entry.status == EntryStatus.ACTIVE else "⚠️"
+                    rel_status_indicator = (
+                        "✓" if metadata.entry.status == EntryStatus.ACTIVE else "⚠️"
+                    )
 
                     # Format path
                     path_str = " ".join([f"{lt.value} {dir}" for lt, dir in metadata.path])
@@ -586,7 +619,7 @@ def entry_show(entry_id: str, follow_links: bool, depth: int) -> None:
 
                     # Field values
                     if metadata.entry.field_values:
-                        click.echo(f"  Fields:")
+                        click.echo("  Fields:")
                         for field_name, field_value in metadata.entry.field_values.items():
                             click.echo(f"    {field_name}: {field_value}")
 
@@ -596,11 +629,15 @@ def entry_show(entry_id: str, follow_links: bool, depth: int) -> None:
 
             # Hint about depth if using default
             if depth == 1:
-                click.echo(f"\n💡 Hint: Showing links at depth 1 (default). Use --depth N to see deeper relationships.")
+                click.echo(
+                    "\n💡 Hint: Showing links at depth 1 (default). Use --depth N to see deeper relationships."  # noqa: E501
+                )
 
         elif has_links:
             # Show hint about --follow-links if entry has links and flag not used
-            click.echo(f"\n💡 Hint: This entry has linked entries. Use --follow-links to see related entries.")
+            click.echo(
+                "\n💡 Hint: This entry has linked entries. Use --follow-links to see related entries."  # noqa: E501
+            )
 
     finally:
         db.close()
@@ -610,14 +647,27 @@ def entry_show(entry_id: str, follow_links: bool, depth: int) -> None:
 @click.option("--template", help="Filter by template name")
 @click.option("--agent", help="Filter by agent name")
 @click.option("--project", help="Filter by project path (substring match)")
-@click.option("--all-projects", is_flag=True, help="Search across all projects instead of auto-detected current project")
+@click.option(
+    "--all-projects",
+    is_flag=True,
+    help="Search across all projects instead of auto-detected current project",
+)
 @click.option("--from", "from_date", help="Filter from date (ISO format)")
 @click.option("--to", "to_date", help="Filter to date (ISO format)")
 @click.option("--field", help="Field name to search")
 @click.option("--value", help="Field value to search (requires --field)")
 @click.option("--substring", is_flag=True, help="Use substring match instead of exact")
-@click.option("--status", type=click.Choice(["active", "deprecated", "superseded"]), help="Filter by entry status")
-@click.option("--tag", "tags", multiple=True, help="Filter by tag (entries with ANY of these tags, repeatable)")
+@click.option(
+    "--status",
+    type=click.Choice(["active", "deprecated", "superseded"]),
+    help="Filter by entry status",
+)
+@click.option(
+    "--tag",
+    "tags",
+    multiple=True,
+    help="Filter by tag (entries with ANY of these tags, repeatable)",
+)
 @click.option("--linked-to", help="Filter entries that link TO this entry ID")
 @click.option("--linked-from", help="Filter entries linked FROM this entry ID")
 @click.option("--limit", default=50, help="Maximum number of results")
@@ -635,7 +685,7 @@ def entry_search(
     tags: tuple[str, ...],
     linked_to: str | None,
     linked_from: str | None,
-    limit: int
+    limit: int,
 ) -> None:
     """Search journal entries.
 
@@ -670,7 +720,7 @@ def entry_search(
             try:
                 linked_to_uuid = UUID(linked_to)
             except ValueError:
-                click.echo(f"Error: Invalid UUID format for --linked-to", err=True)
+                click.echo("Error: Invalid UUID format for --linked-to", err=True)
                 sys.exit(1)
 
         linked_from_uuid = None
@@ -678,7 +728,7 @@ def entry_search(
             try:
                 linked_from_uuid = UUID(linked_from)
             except ValueError:
-                click.echo(f"Error: Invalid UUID format for --linked-from", err=True)
+                click.echo("Error: Invalid UUID format for --linked-from", err=True)
                 sys.exit(1)
 
         results = search_entries(
@@ -695,7 +745,7 @@ def entry_search(
             tags=list(tags) if tags else None,
             linked_to=linked_to_uuid,
             linked_from=linked_from_uuid,
-            limit=limit
+            limit=limit,
         )
 
         if not results:
@@ -703,7 +753,7 @@ def entry_search(
             if auto_detected:
                 expanded = expand_project_path(project)
                 click.echo(f"ℹ️  INFO: Searched in auto-detected project: {expanded}")
-                click.echo(f"    Use --all-projects to search across all projects\n")
+                click.echo("    Use --all-projects to search across all projects\n")
             click.echo("No entries found matching criteria")
             return
 
@@ -711,7 +761,7 @@ def entry_search(
         if auto_detected:
             expanded = expand_project_path(project)
             click.echo(f"\nℹ️  INFO: Searching in auto-detected project: {expanded}")
-            click.echo(f"    Use --all-projects to search across all projects\n")
+            click.echo("    Use --all-projects to search across all projects\n")
 
         click.echo(f"Found {len(results)} entry(ies):\n")
 
@@ -772,7 +822,7 @@ def entry_update_status(entry_id: str, status: str) -> None:
         try:
             uuid = UUID(entry_id)
         except ValueError:
-            click.echo(f"Error: Invalid entry ID format", err=True)
+            click.echo("Error: Invalid entry ID format", err=True)
             sys.exit(1)
 
         # Verify entry exists
@@ -797,7 +847,13 @@ def entry_update_status(entry_id: str, status: str) -> None:
 @entry.command("link")
 @click.argument("from_id")
 @click.argument("to_id")
-@click.option("--type", "link_type", type=click.Choice(["supersedes", "relates_to", "augments", "deprecates"]), required=True, help="Link type")
+@click.option(
+    "--type",
+    "link_type",
+    type=click.Choice(["supersedes", "relates_to", "augments", "deprecates"]),
+    required=True,
+    help="Link type",
+)
 def entry_link(from_id: str, to_id: str, link_type: str) -> None:
     """Create a link between two entries.
 
@@ -813,7 +869,7 @@ def entry_link(from_id: str, to_id: str, link_type: str) -> None:
             from_uuid = UUID(from_id)
             to_uuid = UUID(to_id)
         except ValueError:
-            click.echo(f"Error: Invalid UUID format", err=True)
+            click.echo("Error: Invalid UUID format", err=True)
             sys.exit(1)
 
         # Get agent name from environment or use default
@@ -824,7 +880,7 @@ def entry_link(from_id: str, to_id: str, link_type: str) -> None:
             source_entry_id=from_uuid,
             target_entry_id=to_uuid,
             link_type=LinkType(link_type),
-            created_by=agent
+            created_by=agent,
         )
 
         db.create_entry_link(link)
@@ -865,7 +921,7 @@ def entry_tag(entry_id: str, add_tags: tuple[str, ...], remove_tags: tuple[str, 
         try:
             uuid = UUID(entry_id)
         except ValueError:
-            click.echo(f"Error: Invalid entry ID format", err=True)
+            click.echo("Error: Invalid entry ID format", err=True)
             sys.exit(1)
 
         # Verify entry exists
@@ -911,12 +967,9 @@ def tag() -> None:
 @click.option(
     "--all-projects",
     is_flag=True,
-    help="Show tags across all projects (default: current project only)"
+    help="Show tags across all projects (default: current project only)",
 )
-@click.option(
-    "--project",
-    help="Override project path (default: auto-detect from git or cwd)"
-)
+@click.option("--project", help="Override project path (default: auto-detect from git or cwd)")
 def tag_list(all_projects: bool, project: str | None) -> None:
     """List all tags with usage counts.
 
@@ -992,14 +1045,14 @@ def migrate_status() -> None:
         click.echo(f"Applied migrations: {status['applied_count']}")
         click.echo(f"Pending migrations: {status['pending_count']}")
 
-        if status['applied_migrations']:
+        if status["applied_migrations"]:
             click.echo("\nApplied:")
-            for m in status['applied_migrations']:
+            for m in status["applied_migrations"]:
                 click.echo(f"  [{m['version']}] {m['name']} - {m['applied_at']}")
 
-        if status['pending_migrations']:
+        if status["pending_migrations"]:
             click.echo("\nPending:")
-            for m in status['pending_migrations']:
+            for m in status["pending_migrations"]:
                 click.echo(f"  [{m['version']}] {m['name']}")
 
     finally:
