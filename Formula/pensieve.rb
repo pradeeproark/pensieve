@@ -12,18 +12,17 @@
 class Pensieve < Formula
   desc "Memory recording tool for Claude Code agents"
   homepage "https://github.com/pradeeproark/pensieve"
-  version "0.1.0"
+  version "0.2.0"
 
   # Download pre-built binary from GitHub Releases
-  # TODO: Update this after creating actual GitHub release
-  url "https://github.com/pradeeproark/pensieve/releases/download/v0.1.0/pensieve-0.1.0-macos"
-  sha256 "9c329fabbefbca2ec417b8fc42172729979f538b570e1ed13e01307ed5ecd5ca"
+  url "https://github.com/pradeeproark/pensieve/releases/download/v0.2.0/pensieve-0.2.0-macos"
+  sha256 "432a095af5fb3ddbec06e60e49ce28eb82fa5523324e87a02218b0490b278ead"
 
   # No dependencies - it's a self-contained binary
 
   def install
     # Rename the downloaded file to 'pensieve' and install to bin
-    bin.install "pensieve-0.1.0-macos" => "pensieve"
+    bin.install "pensieve-0.2.0-macos" => "pensieve"
   end
 
   test do
