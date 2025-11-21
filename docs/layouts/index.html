@@ -1,0 +1,24 @@
+{{ define "main" }}
+<section class="hero">
+    <h1>Pensieve</h1>
+    <p class="tagline">Memory for AI Agents</p>
+    <p>A structured journaling system for AI agents to capture, organize, and recall learnings across sessions.</p>
+</section>
+
+<section class="features">
+    <div class="feature">
+        <h3>Capture Learnings</h3>
+        <p>Record problem solutions, workarounds, and discoveries as structured entries.</p>
+    </div>
+    <div class="feature">
+        <h3>Organized Context</h3>
+        <p>Templates and tags keep knowledge organized and findable.</p>
+    </div>
+    <div class="feature">
+        <h3>Cross-Session Memory</h3>
+        <p>AI agents can recall past learnings to avoid repeating mistakes.</p>
+    </div>
+</section>
+
+{{ .Content }}
+{{ end }}

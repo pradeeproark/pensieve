@@ -1,0 +1,29 @@
+<!DOCTYPE html>
+<html lang="{{ .Site.LanguageCode }}">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>{{ if .IsHome }}{{ .Site.Title }}{{ else }}{{ .Title }} | {{ .Site.Title }}{{ end }}</title>
+    <meta name="description" content="{{ .Site.Params.description }}">
+    <link rel="stylesheet" href="{{ "css/style.css" | relURL }}">
+</head>
+<body>
+    <nav class="navbar">
+        <div class="container">
+            <a href="{{ "/" | relURL }}" class="logo">Pensieve</a>
+            <ul class="nav-links">
+                {{ range .Site.Menus.main }}
+                <li><a href="{{ .URL | relURL }}">{{ .Name }}</a></li>
+                {{ end }}
+            </ul>
+        </div>
+    </nav>
+    <main class="container">
+        {{ block "main" . }}{{ end }}
+    </main>
+    <footer class="container">
+        <p>&copy; {{ now.Year }} Cittamaya</p>
+    </footer>
+    <script src="{{ "js/chat-animation.js" | relURL }}"></script>
+</body>
+</html>

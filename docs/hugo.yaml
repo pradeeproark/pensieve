@@ -1,0 +1,30 @@
+baseURL: https://cittamaya.github.io/pensieve/
+languageCode: en-us
+title: Pensieve - Memory for AI Agents
+
+params:
+  description: A structured journaling system for AI agents to capture, organize, and recall learnings across sessions.
+  author: Cittamaya
+
+menu:
+  main:
+    - name: Home
+      url: /
+      weight: 1
+    - name: Getting Started
+      url: /getting-started/
+      weight: 2
+    - name: Demos
+      url: /demos/
+      weight: 3
+    - name: Reference
+      url: /reference/
+      weight: 4
+
+markup:
+  highlight:
+    style: monokai
+    lineNos: false
+  goldmark:
+    renderer:
+      unsafe: true
