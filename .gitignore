@@ -39,6 +39,21 @@ docs/public/
 docs/.hugo_build.lock
 docs/resources/
 
+# Hugo built output (should never be in root with GitHub Actions)
+/categories/
+/css/
+/demos/
+/getting-started/
+/images/
+/js/
+/reference/
+/tags/
+/why/
+/index.html
+/index.xml
+/sitemap.xml
+/.nojekyll
+
 # Demo recording artifacts (local only)
 .cast/
 .tools/
