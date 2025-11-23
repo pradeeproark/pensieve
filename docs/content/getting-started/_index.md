@@ -15,7 +15,7 @@ brew install pensieve
 
 ### Build from Source
 
-For other platforms or to build from source, see the [build instructions](https://github.com/cittamaya/pensieve#building-from-source) on GitHub.
+For other platforms or to build from source, see the [build instructions](https://github.com/pradeeproark/pensieve#building-from-source) on GitHub.
 
 ## First Steps
 

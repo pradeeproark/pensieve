@@ -10,7 +10,7 @@
 <body>
     <nav class="navbar">
         <div class="container">
-            <a href="{{ "/" | relURL }}" class="logo">Pensieve</a>
+            <a href="{{ .Site.Home.Permalink }}" class="logo">Pensieve</a>
             <ul class="nav-links">
                 {{ range .Site.Menus.main }}
                 <li><a href="{{ .URL | relURL }}">{{ .Name }}</a></li>
