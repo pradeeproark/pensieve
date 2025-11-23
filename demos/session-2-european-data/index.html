@@ -33,11 +33,11 @@
     <p>In this session, we add support for European order data. Watch how pensieve recalls the date parsing lesson from Session 1 and prevents us from making the same mistake.</p>
 <div class="story">
 <div class="story-turn user">
-<div class="role">User</div>
+<div class="role">👤 User</div>
 <p>I need to add support for processing eu_orders.csv</p>
 </div>
 <div class="story-turn assistant">
-<div class="role">Claude</div>
+<div class="role">🤖 Claude</div>
 <p>I&rsquo;ll search for any relevant memories before starting.</p>
 <pre tabindex="0"><code>$ pensieve entry search --limit 5
 
@@ -59,24 +59,14 @@ Recommended approach: Use explicit DateFormat constants, never guess
 </code></pre><p>This is directly relevant! The existing code already handles this with explicit <code>DateFormat.US</code> and <code>DateFormat.EU</code> constants. Let me check the current implementation&hellip;</p>
 </div>
 <div class="story-turn user">
-<div class="role">User</div>
+<div class="role">👤 User</div>
 <p>Can you update main() to process the EU file too?</p>
 </div>
 <div class="story-turn assistant">
-<div class="role">Claude</div>
+<div class="role">🤖 Claude</div>
 <p>Based on the memory from our previous session, I know EU dates use DD/MM/YYYY format. The code already has <code>DateFormat.EU</code> - I just need to add the EU file processing with the correct format.</p>
-<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-python" data-lang="python"><span style="display:flex;"><span><span style="color:#75715e"># EU orders data</span>
-</span></span><span style="display:flex;"><span>eu_file <span style="color:#f92672">=</span> data_dir <span style="color:#f92672">/</span> <span style="color:#e6db74">&#34;eu_orders.csv&#34;</span>
-</span></span><span style="display:flex;"><span><span style="color:#66d9ef">if</span> eu_file<span style="color:#f92672">.</span>exists():
-</span></span><span style="display:flex;"><span>    print(<span style="color:#e6db74">f</span><span style="color:#e6db74">&#34;</span><span style="color:#ae81ff">\n</span><span style="color:#e6db74">Processing </span><span style="color:#e6db74">{</span>eu_file<span style="color:#f92672">.</span>name<span style="color:#e6db74">}</span><span style="color:#e6db74"> (EU locale)...&#34;</span>)
-</span></span><span style="display:flex;"><span>    <span style="color:#66d9ef">try</span>:
-</span></span><span style="display:flex;"><span>        records <span style="color:#f92672">=</span> process_csv(eu_file, date_format<span style="color:#f92672">=</span>DateFormat<span style="color:#f92672">.</span>EU)
-</span></span><span style="display:flex;"><span>        print(<span style="color:#e6db74">f</span><span style="color:#e6db74">&#34;  Loaded </span><span style="color:#e6db74">{</span>len(records)<span style="color:#e6db74">}</span><span style="color:#e6db74"> records&#34;</span>)
-</span></span><span style="display:flex;"><span>        <span style="color:#66d9ef">if</span> records:
-</span></span><span style="display:flex;"><span>            print(<span style="color:#e6db74">f</span><span style="color:#e6db74">&#34;  First record: </span><span style="color:#e6db74">{</span>records[<span style="color:#ae81ff">0</span>]<span style="color:#e6db74">}</span><span style="color:#e6db74">&#34;</span>)
-</span></span><span style="display:flex;"><span>    <span style="color:#66d9ef">except</span> <span style="color:#a6e22e">Exception</span> <span style="color:#66d9ef">as</span> e:
-</span></span><span style="display:flex;"><span>        print(<span style="color:#e6db74">f</span><span style="color:#e6db74">&#34;  Error: </span><span style="color:#e6db74">{</span>e<span style="color:#e6db74">}</span><span style="color:#e6db74">&#34;</span>)
-</span></span></code></pre></div><p>Let me verify it works:</p>
+<p><span class="action">✏️ Edited csv_processor.py to add EU file processing in main() using DateFormat.EU for proper DD/MM/YYYY parsing.</span></p>
+<p>Let me verify it works:</p>
 <pre tabindex="0"><code>$ python csv_processor.py
 
 Processing us_sales.csv (US locale)...
@@ -94,11 +84,11 @@ Processing eu_orders.csv (EU locale)...
 </div>
 </div>
 <div class="story-turn user">
-<div class="role">User</div>
+<div class="role">👤 User</div>
 <p>Remember this working solution for EU dates</p>
 </div>
 <div class="story-turn assistant">
-<div class="role">Claude</div>
+<div class="role">🤖 Claude</div>
 <p><span class="action">🧠 Recording this confirmation to pensieve&hellip;</span></p>
 <p>I found the related entry about date parsing. Let me record this confirmation that the pattern works with EU dates, and link it to the existing entry.</p>
 <pre tabindex="0"><code>✓ Entry Recorded:

@@ -33,11 +33,11 @@
     <p>In this session, we discover a subtle but dangerous bug in CSV date parsing - ambiguous dates that can silently corrupt data.</p>
 <div class="story">
 <div class="story-turn user">
-<div class="role">User</div>
+<div class="role">👤 User</div>
 <p>Run the csv_processor.py and check if it&rsquo;s working</p>
 </div>
 <div class="story-turn assistant">
-<div class="role">Claude</div>
+<div class="role">🤖 Claude</div>
 <p>I&rsquo;ll follow the mandatory protocol first by searching for relevant memories.</p>
 <pre tabindex="0"><code>$ pensieve entry search --limit 5
 No entries found for this project
@@ -51,11 +51,11 @@ Processing us_sales.csv...
 </code></pre><p>The CSV processor is working correctly. It processed us_sales.csv with 5 records. Would you like me to look at the processor code or test it with different data?</p>
 </div>
 <div class="story-turn user">
-<div class="role">User</div>
+<div class="role">👤 User</div>
 <p>Wait, the date 01/05/2024 - is that January 5th or May 1st? How do we know?</p>
 </div>
 <div class="story-turn assistant">
-<div class="role">Claude</div>
+<div class="role">🤖 Claude</div>
 <p>Excellent question! The output shows <code>datetime(2024, 1, 5, 0, 0)</code> which is January 5th - so it&rsquo;s using US format (MM/DD/YYYY). Let me check the code&hellip;</p>
 <p>The parser tries multiple formats:</p>
 <div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-python" data-lang="python"><span style="display:flex;"><span>formats <span style="color:#f92672">=</span> [<span style="color:#e6db74">&#34;%Y-%m-</span><span style="color:#e6db74">%d</span><span style="color:#e6db74">&#34;</span>, <span style="color:#e6db74">&#34;%m/</span><span style="color:#e6db74">%d</span><span style="color:#e6db74">/%Y&#34;</span>, <span style="color:#e6db74">&#34;</span><span style="color:#e6db74">%d</span><span style="color:#e6db74">/%m/%Y&#34;</span>]
@@ -67,25 +67,14 @@ Processing us_sales.csv...
 <p>However, the code is fragile. If you had a European file with all dates ≤12 in the day position, it would silently misparse everything.</p>
 </div>
 <div class="story-turn user">
-<div class="role">User</div>
+<div class="role">👤 User</div>
 <p>Fix the parser to require explicit locale, and remember this learning</p>
 </div>
 <div class="story-turn assistant">
-<div class="role">Claude</div>
+<div class="role">🤖 Claude</div>
 <p>I&rsquo;ll fix this by requiring explicit date formats - no more guessing.</p>
-<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-python" data-lang="python"><span style="display:flex;"><span><span style="color:#66d9ef">class</span> <span style="color:#a6e22e">DateFormat</span>:
-</span></span><span style="display:flex;"><span>    <span style="color:#e6db74">&#34;&#34;&#34;Explicit date format specifications to avoid ambiguity.&#34;&#34;&#34;</span>
-</span></span><span style="display:flex;"><span>    ISO <span style="color:#f92672">=</span> <span style="color:#e6db74">&#34;%Y-%m-</span><span style="color:#e6db74">%d</span><span style="color:#e6db74">&#34;</span>   <span style="color:#75715e"># 2024-01-05 (unambiguous)</span>
-</span></span><span style="display:flex;"><span>    US <span style="color:#f92672">=</span> <span style="color:#e6db74">&#34;%m/</span><span style="color:#e6db74">%d</span><span style="color:#e6db74">/%Y&#34;</span>    <span style="color:#75715e"># 01/05/2024 (January 5th)</span>
-</span></span><span style="display:flex;"><span>    EU <span style="color:#f92672">=</span> <span style="color:#e6db74">&#34;</span><span style="color:#e6db74">%d</span><span style="color:#e6db74">/%m/%Y&#34;</span>    <span style="color:#75715e"># 05/01/2024 (January 5th)</span>
-</span></span><span style="display:flex;"><span>
-</span></span><span style="display:flex;"><span><span style="color:#66d9ef">def</span> <span style="color:#a6e22e">parse_date</span>(date_str: str, date_format: str) <span style="color:#f92672">-&gt;</span> datetime:
-</span></span><span style="display:flex;"><span>    <span style="color:#e6db74">&#34;&#34;&#34;Parse a date string with EXPLICIT format - no guessing.&#34;&#34;&#34;</span>
-</span></span><span style="display:flex;"><span>    <span style="color:#66d9ef">try</span>:
-</span></span><span style="display:flex;"><span>        <span style="color:#66d9ef">return</span> datetime<span style="color:#f92672">.</span>strptime(date_str, date_format)
-</span></span><span style="display:flex;"><span>    <span style="color:#66d9ef">except</span> <span style="color:#a6e22e">ValueError</span>:
-</span></span><span style="display:flex;"><span>        <span style="color:#66d9ef">raise</span> <span style="color:#a6e22e">ValueError</span>(<span style="color:#e6db74">f</span><span style="color:#e6db74">&#34;Cannot parse date &#39;</span><span style="color:#e6db74">{</span>date_str<span style="color:#e6db74">}</span><span style="color:#e6db74">&#39; with format &#39;</span><span style="color:#e6db74">{</span>date_format<span style="color:#e6db74">}</span><span style="color:#e6db74">&#39;&#34;</span>)
-</span></span></code></pre></div><p><span class="action">🧠 Recording this learning with pensieve&hellip;</span></p>
+<p><span class="action">✏️ Edited csv_processor.py to add explicit DateFormat enum (ISO, US, EU) and modified parse_date() to require format specification instead of trying multiple formats.</span></p>
+<p><span class="action">🧠 Recording this learning with pensieve&hellip;</span></p>
 <pre tabindex="0"><code>$ pensieve entry create --template pattern_discovered
 
 Created entry: Date Parsing Ambiguity

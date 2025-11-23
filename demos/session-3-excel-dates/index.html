@@ -33,11 +33,11 @@
     <p>In this session, we encounter Excel serial dates. Watch how pensieve automatically surfaces BOTH previous date-related memories, and how Claude evaluates learnings against its rubric before recording - all without explicit prompting.</p>
 <div class="story">
 <div class="story-turn user">
-<div class="role">User</div>
+<div class="role">👤 User</div>
 <p>Process the excel_export.csv file</p>
 </div>
 <div class="story-turn assistant">
-<div class="role">Claude</div>
+<div class="role">🤖 Claude</div>
 <p>Let me search for relevant memories first.</p>
 <pre tabindex="0"><code>$ pensieve entry search --limit 5
 
@@ -62,7 +62,7 @@ for EU dates. Always be explicit about date formats.
 </code></pre><p>Good! The code already handles US and EU formats explicitly. Let me process the Excel file.</p>
 </div>
 <div class="story-turn assistant">
-<div class="role">Claude</div>
+<div class="role">🤖 Claude</div>
 <pre tabindex="0"><code>$ python csv_processor.py
 
 Processing excel_export.csv...
@@ -78,30 +78,10 @@ Processing excel_export.csv...
 <p>Let me add support for Excel serial dates while maintaining the explicit format approach from our previous learnings.</p>
 </div>
 <div class="story-turn assistant">
-<div class="role">Claude</div>
+<div class="role">🤖 Claude</div>
 <p>I&rsquo;ll update the parse_date function to handle numeric Excel dates:</p>
-<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-python" data-lang="python"><span style="display:flex;"><span><span style="color:#66d9ef">def</span> <span style="color:#a6e22e">parse_date</span>(date_str: str, date_format: str) <span style="color:#f92672">-&gt;</span> datetime:
-</span></span><span style="display:flex;"><span>    <span style="color:#e6db74">&#34;&#34;&#34;Parse a date string with EXPLICIT format.
-</span></span></span><span style="display:flex;"><span><span style="color:#e6db74">
-</span></span></span><span style="display:flex;"><span><span style="color:#e6db74">    Also handles Excel serial dates (numeric values).
-</span></span></span><span style="display:flex;"><span><span style="color:#e6db74">    &#34;&#34;&#34;</span>
-</span></span><span style="display:flex;"><span>    <span style="color:#75715e"># Try parsing as Excel serial number first</span>
-</span></span><span style="display:flex;"><span>    <span style="color:#66d9ef">try</span>:
-</span></span><span style="display:flex;"><span>        serial_number <span style="color:#f92672">=</span> float(date_str)
-</span></span><span style="display:flex;"><span>        <span style="color:#75715e"># Excel epoch: 1899-12-30 (accounting for Excel&#39;s leap year bug)</span>
-</span></span><span style="display:flex;"><span>        excel_epoch <span style="color:#f92672">=</span> datetime(<span style="color:#ae81ff">1899</span>, <span style="color:#ae81ff">12</span>, <span style="color:#ae81ff">30</span>)
-</span></span><span style="display:flex;"><span>        <span style="color:#66d9ef">return</span> excel_epoch <span style="color:#f92672">+</span> timedelta(days<span style="color:#f92672">=</span>serial_number)
-</span></span><span style="display:flex;"><span>    <span style="color:#66d9ef">except</span> <span style="color:#a6e22e">ValueError</span>:
-</span></span><span style="display:flex;"><span>        <span style="color:#66d9ef">pass</span>  <span style="color:#75715e"># Not a number, try string parsing</span>
-</span></span><span style="display:flex;"><span>
-</span></span><span style="display:flex;"><span>    <span style="color:#75715e"># Fall back to explicit format parsing</span>
-</span></span><span style="display:flex;"><span>    <span style="color:#66d9ef">try</span>:
-</span></span><span style="display:flex;"><span>        <span style="color:#66d9ef">return</span> datetime<span style="color:#f92672">.</span>strptime(date_str, date_format)
-</span></span><span style="display:flex;"><span>    <span style="color:#66d9ef">except</span> <span style="color:#a6e22e">ValueError</span>:
-</span></span><span style="display:flex;"><span>        <span style="color:#66d9ef">raise</span> <span style="color:#a6e22e">ValueError</span>(
-</span></span><span style="display:flex;"><span>            <span style="color:#e6db74">f</span><span style="color:#e6db74">&#34;Cannot parse date &#39;</span><span style="color:#e6db74">{</span>date_str<span style="color:#e6db74">}</span><span style="color:#e6db74">&#39; with format &#39;</span><span style="color:#e6db74">{</span>date_format<span style="color:#e6db74">}</span><span style="color:#e6db74">&#39;&#34;</span>
-</span></span><span style="display:flex;"><span>        )
-</span></span></code></pre></div><p>Now let me test it:</p>
+<p><span class="action">✏️ Edited csv_processor.py parse_date() to add try-except logic: first attempt parsing as Excel serial number (days since 1899-12-30), then fall back to explicit format string parsing.</span></p>
+<p>Now let me test it:</p>
 <pre tabindex="0"><code>$ python csv_processor.py
 
 Processing excel_export.csv...
@@ -111,11 +91,11 @@ Processing excel_export.csv...
 </code></pre><p>Perfect! The serial date 45292 is correctly parsed as November 21, 2023.</p>
 </div>
 <div class="story-turn user">
-<div class="role">User</div>
+<div class="role">👤 User</div>
 <p>Great! Remember this solution</p>
 </div>
 <div class="story-turn assistant">
-<div class="role">Claude</div>
+<div class="role">🤖 Claude</div>
 <p><span class="action">🧠 Evaluating and recording learnings to pensieve&hellip;</span></p>
 <p>Let me assess this learning against the rubric:</p>
 <p><strong>Evaluation:</strong></p>
