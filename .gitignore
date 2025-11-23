@@ -38,3 +38,7 @@ Thumbs.db
 docs/public/
 docs/.hugo_build.lock
 docs/resources/
+
+# Demo recording artifacts (local only)
+.cast/
+.tools/
