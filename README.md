@@ -1,42 +1,77 @@
 # Pensieve
 
-Memory recording tool for Claude Code agents - capture and retrieve structured memory events across sessions.
+Contextual scratchpad for AI agents - capture and retrieve working knowledge across sessions.
 
 ## Overview
 
-Pensieve enables Claude Code agents to maintain context and continuity by recording significant events, decisions, and patterns in a structured format. All memories are stored using customizable templates with typed fields and can be queried efficiently.
+Pensieve enables AI agents to maintain context and continuity by recording significant events, decisions, and patterns in a structured format. Use it standalone via CLI or integrate with your AI agent workflow. All memories are stored using customizable templates with typed fields and can be queried efficiently.
+
+**Agent Integration:** While Pensieve can be used with any AI agent or CLI tool, we provide a tested, production-ready integration for **Claude Code** (see below).
 
 ## Installation
 
-### Development
+### Homebrew (macOS)
 ```bash
-pip install -e ".[dev]"
+brew tap cittamaya/pensieve
+brew install pensieve
 ```
 
-### Building Executable
+### Build from Source
 ```bash
+# Clone the repository
+git clone https://github.com/pradeeproark/pensieve.git
+cd pensieve
+
+# Install for development
+pip install -e ".[dev]"
+
+# Or build executable
 python build/build.py
 ```
 
-## Claude Code Integration
+**Platform availability:** Currently macOS only. Windows and Linux builds coming soon.
+
+## AI Agent Integration
+
+### Claude Code (Tested Integration)
 
 For Claude Code users, Pensieve is available as a plugin through the Cittamaya marketplace. The plugin provides:
-- **Skills**: `memory-management` skill with comprehensive guidance
-- **Hooks**: Automatic reminders at session start/end and after git commits
-- **Integration**: Seamless integration with Pensieve CLI
+- **Automatic session hooks**: Memory search at session start
+- **Natural language triggers**: Responds to "remember", "recall", "note", etc.
+- **Slash commands**: `/pensieve:remember` and `/pensieve:recall`
+- **Memory management skill**: Comprehensive guidance for effective memory usage
 
-### Installation
-
+**Installation:**
 ```bash
-# Install the CLI tool first
-pip install pensieve
+# Option 1: Interactive (recommended)
+/plugin
 
-# Then install the Claude Code plugin
-/plugin marketplace add cittamaya/cittamaya
-/plugin install pensieve@cittamaya-marketplace
+# Option 2: CLI
+claude plugin marketplace add https://github.com/cittamaya/cittamaya.git
+claude plugin install pensieve
 ```
 
-See the [Cittamaya marketplace repository](https://github.com/cittamaya/cittamaya) for complete plugin documentation.
+See the [plugin documentation](https://cittamaya.github.io/cittamaya/) for complete details.
+
+### Other AI Agents
+
+Pensieve can be integrated with any AI agent that can execute CLI commands. The agent needs to:
+1. Run `pensieve entry search` to recall relevant memories
+2. Run `pensieve entry create` to record new learnings
+3. Parse the human-readable output (structured text)
+
+Example integration pattern:
+```bash
+# At session start: search for relevant context
+pensieve entry search --tag authentication --limit 5
+
+# During session: record learnings
+pensieve entry create --template pattern_discovered \
+  --field pattern="Always validate tokens" \
+  --field context="Auth middleware"
+```
+
+For custom integrations, see the [CLI reference](#commands) below.
 
 ## Quick Start
 
