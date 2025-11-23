@@ -8,14 +8,14 @@ In this session, we add support for European order data. Watch how pensieve reca
 <div class="story">
 
 <div class="story-turn user">
-<div class="role">User</div>
+<div class="role">👤 User</div>
 
 I need to add support for processing eu_orders.csv
 
 </div>
 
 <div class="story-turn assistant">
-<div class="role">Claude</div>
+<div class="role">🤖 Claude</div>
 
 I'll search for any relevant memories before starting.
 
@@ -50,30 +50,18 @@ This is directly relevant! The existing code already handles this with explicit 
 </div>
 
 <div class="story-turn user">
-<div class="role">User</div>
+<div class="role">👤 User</div>
 
 Can you update main() to process the EU file too?
 
 </div>
 
 <div class="story-turn assistant">
-<div class="role">Claude</div>
+<div class="role">🤖 Claude</div>
 
 Based on the memory from our previous session, I know EU dates use DD/MM/YYYY format. The code already has `DateFormat.EU` - I just need to add the EU file processing with the correct format.
 
-```python
-# EU orders data
-eu_file = data_dir / "eu_orders.csv"
-if eu_file.exists():
-    print(f"\nProcessing {eu_file.name} (EU locale)...")
-    try:
-        records = process_csv(eu_file, date_format=DateFormat.EU)
-        print(f"  Loaded {len(records)} records")
-        if records:
-            print(f"  First record: {records[0]}")
-    except Exception as e:
-        print(f"  Error: {e}")
-```
+<span class="action">✏️ Edited csv_processor.py to add EU file processing in main() using DateFormat.EU for proper DD/MM/YYYY parsing.</span>
 
 Let me verify it works:
 
@@ -102,14 +90,14 @@ Without the memory from Session 1, I might have just used the same format for bo
 </div>
 
 <div class="story-turn user">
-<div class="role">User</div>
+<div class="role">👤 User</div>
 
 Remember this working solution for EU dates
 
 </div>
 
 <div class="story-turn assistant">
-<div class="role">Claude</div>
+<div class="role">🤖 Claude</div>
 
 <span class="action">🧠 Recording this confirmation to pensieve...</span>
 

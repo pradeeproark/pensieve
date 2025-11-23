@@ -8,14 +8,14 @@ In this session, we discover a subtle but dangerous bug in CSV date parsing - am
 <div class="story">
 
 <div class="story-turn user">
-<div class="role">User</div>
+<div class="role">👤 User</div>
 
 Run the csv_processor.py and check if it's working
 
 </div>
 
 <div class="story-turn assistant">
-<div class="role">Claude</div>
+<div class="role">🤖 Claude</div>
 
 I'll follow the mandatory protocol first by searching for relevant memories.
 
@@ -40,14 +40,14 @@ The CSV processor is working correctly. It processed us_sales.csv with 5 records
 </div>
 
 <div class="story-turn user">
-<div class="role">User</div>
+<div class="role">👤 User</div>
 
 Wait, the date 01/05/2024 - is that January 5th or May 1st? How do we know?
 
 </div>
 
 <div class="story-turn assistant">
-<div class="role">Claude</div>
+<div class="role">🤖 Claude</div>
 
 Excellent question! The output shows `datetime(2024, 1, 5, 0, 0)` which is January 5th - so it's using US format (MM/DD/YYYY). Let me check the code...
 
@@ -71,31 +71,18 @@ However, the code is fragile. If you had a European file with all dates ≤12 in
 </div>
 
 <div class="story-turn user">
-<div class="role">User</div>
+<div class="role">👤 User</div>
 
 Fix the parser to require explicit locale, and remember this learning
 
 </div>
 
 <div class="story-turn assistant">
-<div class="role">Claude</div>
+<div class="role">🤖 Claude</div>
 
 I'll fix this by requiring explicit date formats - no more guessing.
 
-```python
-class DateFormat:
-    """Explicit date format specifications to avoid ambiguity."""
-    ISO = "%Y-%m-%d"   # 2024-01-05 (unambiguous)
-    US = "%m/%d/%Y"    # 01/05/2024 (January 5th)
-    EU = "%d/%m/%Y"    # 05/01/2024 (January 5th)
-
-def parse_date(date_str: str, date_format: str) -> datetime:
-    """Parse a date string with EXPLICIT format - no guessing."""
-    try:
-        return datetime.strptime(date_str, date_format)
-    except ValueError:
-        raise ValueError(f"Cannot parse date '{date_str}' with format '{date_format}'")
-```
+<span class="action">✏️ Edited csv_processor.py to add explicit DateFormat enum (ISO, US, EU) and modified parse_date() to require format specification instead of trying multiple formats.</span>
 
 <span class="action">🧠 Recording this learning with pensieve...</span>
 

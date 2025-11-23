@@ -8,14 +8,14 @@ In this session, we encounter Excel serial dates. Watch how pensieve automatical
 <div class="story">
 
 <div class="story-turn user">
-<div class="role">User</div>
+<div class="role">👤 User</div>
 
 Process the excel_export.csv file
 
 </div>
 
 <div class="story-turn assistant">
-<div class="role">Claude</div>
+<div class="role">🤖 Claude</div>
 
 Let me search for relevant memories first.
 
@@ -57,7 +57,7 @@ Good! The code already handles US and EU formats explicitly. Let me process the 
 </div>
 
 <div class="story-turn assistant">
-<div class="role">Claude</div>
+<div class="role">🤖 Claude</div>
 
 ```
 $ python csv_processor.py
@@ -87,33 +87,11 @@ Let me add support for Excel serial dates while maintaining the explicit format 
 </div>
 
 <div class="story-turn assistant">
-<div class="role">Claude</div>
+<div class="role">🤖 Claude</div>
 
 I'll update the parse_date function to handle numeric Excel dates:
 
-```python
-def parse_date(date_str: str, date_format: str) -> datetime:
-    """Parse a date string with EXPLICIT format.
-
-    Also handles Excel serial dates (numeric values).
-    """
-    # Try parsing as Excel serial number first
-    try:
-        serial_number = float(date_str)
-        # Excel epoch: 1899-12-30 (accounting for Excel's leap year bug)
-        excel_epoch = datetime(1899, 12, 30)
-        return excel_epoch + timedelta(days=serial_number)
-    except ValueError:
-        pass  # Not a number, try string parsing
-
-    # Fall back to explicit format parsing
-    try:
-        return datetime.strptime(date_str, date_format)
-    except ValueError:
-        raise ValueError(
-            f"Cannot parse date '{date_str}' with format '{date_format}'"
-        )
-```
+<span class="action">✏️ Edited csv_processor.py parse_date() to add try-except logic: first attempt parsing as Excel serial number (days since 1899-12-30), then fall back to explicit format string parsing.</span>
 
 Now let me test it:
 
@@ -131,14 +109,14 @@ Perfect! The serial date 45292 is correctly parsed as November 21, 2023.
 </div>
 
 <div class="story-turn user">
-<div class="role">User</div>
+<div class="role">👤 User</div>
 
 Great! Remember this solution
 
 </div>
 
 <div class="story-turn assistant">
-<div class="role">Claude</div>
+<div class="role">🤖 Claude</div>
 
 <span class="action">🧠 Evaluating and recording learnings to pensieve...</span>
 
