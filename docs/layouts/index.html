@@ -1,22 +1,42 @@
 {{ define "main" }}
 <section class="hero">
-    <h1>Pensieve</h1>
-    <p class="tagline">Memory for AI Agents</p>
-    <p>A structured journaling system for AI agents to capture, organize, and recall learnings across sessions.</p>
+    <div class="hero-content">
+        <div class="hero-image">
+            <img src="{{ "images/pensieve.png" | relURL }}" alt="Pensieve" />
+        </div>
+        <div class="hero-text">
+            <h1>Pensieve</h1>
+            <p class="tagline">Contextual Scratchpad for AI Agents</p>
+            <p>A scratchpad for AI agents to capture context, patterns, and solutions across sessions—not permanent docs, just working knowledge.</p>
+        </div>
+    </div>
 </section>
 
 <section class="features">
     <div class="feature">
+        <span class="feature-icon">💡</span>
         <h3>Capture Learnings</h3>
         <p>Record problem solutions, workarounds, and discoveries as structured entries.</p>
     </div>
     <div class="feature">
+        <span class="feature-icon">🗂️</span>
         <h3>Organized Context</h3>
         <p>Templates and tags keep knowledge organized and findable.</p>
     </div>
     <div class="feature">
+        <span class="feature-icon">🧠</span>
         <h3>Cross-Session Memory</h3>
         <p>AI agents can recall past learnings to avoid repeating mistakes.</p>
+    </div>
+    <div class="feature">
+        <span class="feature-icon">⚙️</span>
+        <h3>Custom Templates</h3>
+        <p>Define your own templates to capture exactly the knowledge you need.</p>
+    </div>
+    <div class="feature">
+        <span class="feature-icon">🔒</span>
+        <h3>Local Data</h3>
+        <p>All your data stays on your machine - complete privacy and control.</p>
     </div>
 </section>
 

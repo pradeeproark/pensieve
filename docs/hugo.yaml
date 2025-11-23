@@ -1,25 +1,28 @@
-baseURL: https://cittamaya.github.io/pensieve/
+baseURL: https://pradeeproark.github.io/pensieve/
 languageCode: en-us
-title: Pensieve - Memory for AI Agents
+title: Pensieve - Contextual Scratchpad for AI Agents
 
 params:
-  description: A structured journaling system for AI agents to capture, organize, and recall learnings across sessions.
+  description: A contextual scratchpad for AI agents to capture and recall working knowledge across sessions.
   author: Cittamaya
 
 menu:
   main:
-    - name: Home
+    - name: What?
       url: /
       weight: 1
+    - name: Why?
+      url: /why/
+      weight: 2
     - name: Getting Started
       url: /getting-started/
-      weight: 2
-    - name: Demos
-      url: /demos/
       weight: 3
-    - name: Reference
-      url: /reference/
+    - name: Showcase
+      url: /demos/
       weight: 4
+    - name: Docs
+      url: /reference/
+      weight: 5
 
 markup:
   highlight:
