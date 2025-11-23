@@ -2,16 +2,16 @@
 <rss version="2.0" xmlns:atom="http://www.w3.org/2005/Atom">
   <channel>
     <title>Reference on Pensieve - Contextual Scratchpad for AI Agents</title>
-    <link>http://localhost:1313/pensieve/reference/</link>
+    <link>https://pradeeproark.github.io/pensieve/reference/</link>
     <description>Recent content in Reference on Pensieve - Contextual Scratchpad for AI Agents</description>
     <generator>Hugo</generator>
     <language>en-us</language>
-    <atom:link href="http://localhost:1313/pensieve/reference/index.xml" rel="self" type="application/rss+xml" />
+    <atom:link href="https://pradeeproark.github.io/pensieve/reference/index.xml" rel="self" type="application/rss+xml" />
     <item>
       <title></title>
-      <link>http://localhost:1313/pensieve/reference/goals/</link>
+      <link>https://pradeeproark.github.io/pensieve/reference/goals/</link>
       <pubDate>Mon, 01 Jan 0001 00:00:00 +0000</pubDate>
-      <guid>http://localhost:1313/pensieve/reference/goals/</guid>
+      <guid>https://pradeeproark.github.io/pensieve/reference/goals/</guid>
       <description>&lt;h1 id=&#34;pensieve---memory-recording-tool-for-claude-code&#34;&gt;Pensieve - Memory Recording Tool for Claude Code&lt;/h1&gt;&#xA;&lt;h2 id=&#34;project-goal&#34;&gt;Project Goal&lt;/h2&gt;&#xA;&lt;p&gt;Create a CLI tool that enables Claude Code agents to record and retrieve structured memory events across sessions. This persistent memory system helps maintain context, track decisions, and create continuity in long-running development projects.&lt;/p&gt;&#xA;&lt;h2 id=&#34;core-requirements&#34;&gt;Core Requirements&lt;/h2&gt;&#xA;&lt;h3 id=&#34;1-template-system&#34;&gt;1. Template System&lt;/h3&gt;&#xA;&lt;p&gt;&lt;strong&gt;Purpose&lt;/strong&gt;: Define structured schemas for different types of memory events.&lt;/p&gt;&#xA;&lt;p&gt;&lt;strong&gt;Features&lt;/strong&gt;:&lt;/p&gt;&#xA;&lt;ul&gt;&#xA;&lt;li&gt;Agents can create custom templates&lt;/li&gt;&#xA;&lt;li&gt;Templates define fields with specific types and constraints&lt;/li&gt;&#xA;&lt;li&gt;Templates are versioned and immutable once in use&lt;/li&gt;&#xA;&lt;li&gt;Templates can be exported/imported as JSON&lt;/li&gt;&#xA;&lt;/ul&gt;&#xA;&lt;p&gt;&lt;strong&gt;Field Types&lt;/strong&gt;:&lt;/p&gt;</description>
     </item>
   </channel>
