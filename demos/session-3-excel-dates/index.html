@@ -1,0 +1,176 @@
+<!DOCTYPE html>
+<html lang="en-us">
+<head><script src="/pensieve/livereload.js?mindelay=10&amp;v=2&amp;port=1313&amp;path=pensieve/livereload" data-no-instant defer></script>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Session 3: Excel Serial Dates | Pensieve - Contextual Scratchpad for AI Agents</title>
+    <meta name="description" content="A contextual scratchpad for AI agents to capture and recall working knowledge across sessions.">
+    <link rel="stylesheet" href="/pensieve/css/style.css">
+</head>
+<body>
+    <nav class="navbar">
+        <div class="container">
+            <a href="/" class="logo">Pensieve</a>
+            <ul class="nav-links">
+
+                <li><a href="/pensieve/">What?</a></li>
+
+                <li><a href="/pensieve/why/">Why?</a></li>
+
+                <li><a href="/pensieve/getting-started/">Getting Started</a></li>
+
+                <li><a href="/pensieve/demos/">Showcase</a></li>
+
+                <li><a href="/pensieve/reference/">Docs</a></li>
+
+            </ul>
+        </div>
+    </nav>
+    <main class="container">
+
+<article>
+    <h1>Session 3: Excel Serial Dates</h1>
+    <p>In this session, we encounter Excel serial dates. Watch how pensieve automatically surfaces BOTH previous date-related memories, and how Claude evaluates learnings against its rubric before recording - all without explicit prompting.</p>
+<div class="story">
+<div class="story-turn user">
+<div class="role">User</div>
+<p>Process the excel_export.csv file</p>
+</div>
+<div class="story-turn assistant">
+<div class="role">Claude</div>
+<p>Let me search for relevant memories first.</p>
+<pre tabindex="0"><code>$ pensieve entry search --limit 5
+
+Found 2 entries:
+  ID: 4961b089-3627-4c41-a90d-a8b0e59d5f2f
+  Template: pattern_discovered
+  Tags: date-parsing, european-dates, locale-handling
+
+  ID: 1a0501ad-48ad-41c2-b73a-c85d711dd6d2
+  Template: pattern_discovered
+  Tags: date-parsing, data-validation, csv
+</code></pre><div class="insight">
+<p><strong>Pattern Recognition Across Sessions:</strong> I&rsquo;ve dealt with date formats twice before! Let me review both memories to understand what I&rsquo;ve learned about date handling in this codebase.</p>
+</div>
+<p>Let me check what these previous learnings say&hellip;</p>
+<pre tabindex="0"><code>Pattern: Date Parsing Ambiguity
+Summary: Ambiguous date formats like MM/DD vs DD/MM can silently
+corrupt data. Always require explicit locale/format specification.
+</code></pre><pre tabindex="0"><code>Pattern: Locale-Aware CSV Processing for European Dates
+Summary: Confirmed that explicit DateFormat constants work correctly
+for EU dates. Always be explicit about date formats.
+</code></pre><p>Good! The code already handles US and EU formats explicitly. Let me process the Excel file.</p>
+</div>
+<div class="story-turn assistant">
+<div class="role">Claude</div>
+<pre tabindex="0"><code>$ python csv_processor.py
+
+Processing excel_export.csv...
+  Error: Cannot parse date &#39;45292&#39; with format &#39;%Y-%m-%d&#39;
+</code></pre><p>Interesting! Excel dates are appearing as numbers. Let me investigate&hellip;</p>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-python" data-lang="python"><span style="display:flex;"><span><span style="color:#75715e"># Example data from excel_export.csv:</span>
+</span></span><span style="display:flex;"><span><span style="color:#75715e"># 45292, Widget X, 1200.00</span>
+</span></span><span style="display:flex;"><span><span style="color:#75715e"># 45293, Widget Y, 850.50</span>
+</span></span></code></pre></div><div class="insight">
+<p><strong>New Pattern:</strong> Excel serial dates! These are numeric values representing days since 1899-12-30. The value 45292 is actually November 21, 2023.</p>
+<p>This is different from the MM/DD vs DD/MM ambiguity we&rsquo;ve handled before - it&rsquo;s a completely different date encoding system that requires numeric handling.</p>
+</div>
+<p>Let me add support for Excel serial dates while maintaining the explicit format approach from our previous learnings.</p>
+</div>
+<div class="story-turn assistant">
+<div class="role">Claude</div>
+<p>I&rsquo;ll update the parse_date function to handle numeric Excel dates:</p>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-python" data-lang="python"><span style="display:flex;"><span><span style="color:#66d9ef">def</span> <span style="color:#a6e22e">parse_date</span>(date_str: str, date_format: str) <span style="color:#f92672">-&gt;</span> datetime:
+</span></span><span style="display:flex;"><span>    <span style="color:#e6db74">&#34;&#34;&#34;Parse a date string with EXPLICIT format.
+</span></span></span><span style="display:flex;"><span><span style="color:#e6db74">
+</span></span></span><span style="display:flex;"><span><span style="color:#e6db74">    Also handles Excel serial dates (numeric values).
+</span></span></span><span style="display:flex;"><span><span style="color:#e6db74">    &#34;&#34;&#34;</span>
+</span></span><span style="display:flex;"><span>    <span style="color:#75715e"># Try parsing as Excel serial number first</span>
+</span></span><span style="display:flex;"><span>    <span style="color:#66d9ef">try</span>:
+</span></span><span style="display:flex;"><span>        serial_number <span style="color:#f92672">=</span> float(date_str)
+</span></span><span style="display:flex;"><span>        <span style="color:#75715e"># Excel epoch: 1899-12-30 (accounting for Excel&#39;s leap year bug)</span>
+</span></span><span style="display:flex;"><span>        excel_epoch <span style="color:#f92672">=</span> datetime(<span style="color:#ae81ff">1899</span>, <span style="color:#ae81ff">12</span>, <span style="color:#ae81ff">30</span>)
+</span></span><span style="display:flex;"><span>        <span style="color:#66d9ef">return</span> excel_epoch <span style="color:#f92672">+</span> timedelta(days<span style="color:#f92672">=</span>serial_number)
+</span></span><span style="display:flex;"><span>    <span style="color:#66d9ef">except</span> <span style="color:#a6e22e">ValueError</span>:
+</span></span><span style="display:flex;"><span>        <span style="color:#66d9ef">pass</span>  <span style="color:#75715e"># Not a number, try string parsing</span>
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>    <span style="color:#75715e"># Fall back to explicit format parsing</span>
+</span></span><span style="display:flex;"><span>    <span style="color:#66d9ef">try</span>:
+</span></span><span style="display:flex;"><span>        <span style="color:#66d9ef">return</span> datetime<span style="color:#f92672">.</span>strptime(date_str, date_format)
+</span></span><span style="display:flex;"><span>    <span style="color:#66d9ef">except</span> <span style="color:#a6e22e">ValueError</span>:
+</span></span><span style="display:flex;"><span>        <span style="color:#66d9ef">raise</span> <span style="color:#a6e22e">ValueError</span>(
+</span></span><span style="display:flex;"><span>            <span style="color:#e6db74">f</span><span style="color:#e6db74">&#34;Cannot parse date &#39;</span><span style="color:#e6db74">{</span>date_str<span style="color:#e6db74">}</span><span style="color:#e6db74">&#39; with format &#39;</span><span style="color:#e6db74">{</span>date_format<span style="color:#e6db74">}</span><span style="color:#e6db74">&#39;&#34;</span>
+</span></span><span style="display:flex;"><span>        )
+</span></span></code></pre></div><p>Now let me test it:</p>
+<pre tabindex="0"><code>$ python csv_processor.py
+
+Processing excel_export.csv...
+  Loaded 5 records
+  First record: {&#39;serial_id&#39;: &#39;EX-001&#39;, &#39;product&#39;: &#39;Widget X&#39;,
+                 &#39;date&#39;: datetime(2023, 11, 21, 0, 0), &#39;amount&#39;: &#39;1200.00&#39;}
+</code></pre><p>Perfect! The serial date 45292 is correctly parsed as November 21, 2023.</p>
+</div>
+<div class="story-turn user">
+<div class="role">User</div>
+<p>Great! Remember this solution</p>
+</div>
+<div class="story-turn assistant">
+<div class="role">Claude</div>
+<p><span class="action">🧠 Evaluating and recording learnings to pensieve&hellip;</span></p>
+<p>Let me assess this learning against the rubric:</p>
+<p><strong>Evaluation:</strong></p>
+<ul>
+<li>✓ <strong>Specific</strong>: Concrete solution for Excel serial dates with exact implementation</li>
+<li>✓ <strong>Reusable</strong>: Pattern applies to any Excel CSV export</li>
+<li>✓ <strong>Linked</strong>: Relates to previous date parsing memories (Sessions 1 &amp; 2)</li>
+<li>✓ <strong>Contextualized</strong>: Tied to specific files and code location</li>
+<li>✓ <strong>Proven</strong>: Working solution, not theoretical</li>
+</ul>
+<p>This meets the criteria for recording. Creating entry&hellip;</p>
+<pre tabindex="0"><code>✓ Entry Recorded:
+  ID: 397ec7ff-8e3e-40bd-b811-2c0b92d4d440
+  Template: problem_solved
+  Problem: Excel dates in CSV failed to parse - numeric values like 45292
+  Solution: Try-except pattern to attempt float conversion first, then fall back to string parsing
+  Tags: csv, date-parsing, excel
+  Linked to:
+    - augments → 1a0501ad (original date ambiguity pattern)
+    - relates_to → 4961b089 (European dates pattern)
+</code></pre><div class="insight">
+<p><strong>Knowledge Graph Evolution:</strong> This is the third date-related learning in our knowledge graph:</p>
+<pre tabindex="0"><code>Session 1 (1a0501ad): Date Parsing Ambiguity
+    ↓ augmented by
+Session 2 (4961b089): European Dates Pattern
+    ↓ augmented by
+Session 3 (397ec7ff): Excel Serial Dates
+</code></pre><p>Each session builds on previous learnings. When Session 4 encounters yet another date format, pensieve will surface ALL THREE related memories, showing the compounding value of accumulated knowledge.</p>
+<p>Notice how Claude now:</p>
+<ol>
+<li><strong>Automatically searches</strong> for relevant memories at session start</li>
+<li><strong>Recognizes patterns</strong> across multiple sessions (&ldquo;I&rsquo;ve dealt with dates twice before&rdquo;)</li>
+<li><strong>Evaluates learnings</strong> against rubric criteria before recording</li>
+<li><strong>Links entries</strong> to build a knowledge graph, not isolated facts</li>
+</ol>
+<p>This is pensieve in action - not just remembering, but understanding relationships and accumulating expertise over time.</p>
+</div>
+</div>
+</div>
+<h2 id="key-takeaways">Key Takeaways</h2>
+<p>This session demonstrates pensieve&rsquo;s most powerful feature: <strong>autonomous knowledge management</strong>.</p>
+<ol>
+<li><strong>Automatic Recall</strong> - Claude searches for relevant memories without being told to</li>
+<li><strong>Pattern Recognition</strong> - Identifies this as the &ldquo;third time dealing with dates&rdquo;</li>
+<li><strong>Rubric Evaluation</strong> - Assesses learning quality before recording (specific, reusable, linked, contextualized, proven)</li>
+<li><strong>Knowledge Graph</strong> - Links to both previous sessions, creating connected expertise</li>
+</ol>
+<p>The compounding effect is now clear: What started as a single insight in Session 1 has grown into a comprehensive understanding of date handling across multiple formats, with each session building on and validating previous learnings.</p>
+
+</article>
+
+    </main>
+    <footer class="container">
+        <p>&copy; 2025 Cittamaya</p>
+    </footer>
+    <script src="/pensieve/js/chat-animation.js"></script>
+</body>
+</html>

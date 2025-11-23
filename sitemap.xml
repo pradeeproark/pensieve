@@ -1,0 +1,27 @@
+<?xml version="1.0" encoding="utf-8" standalone="yes"?>
+<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9"
+  xmlns:xhtml="http://www.w3.org/1999/xhtml">
+  <url>
+    <loc>http://localhost:1313/pensieve/demos/session-1-date-ambiguity/</loc>
+  </url><url>
+    <loc>http://localhost:1313/pensieve/demos/session-2-european-data/</loc>
+  </url><url>
+    <loc>http://localhost:1313/pensieve/demos/session-3-excel-dates/</loc>
+  </url><url>
+    <loc>http://localhost:1313/pensieve/reference/goals/</loc>
+  </url><url>
+    <loc>http://localhost:1313/pensieve/categories/</loc>
+  </url><url>
+    <loc>http://localhost:1313/pensieve/demos/</loc>
+  </url><url>
+    <loc>http://localhost:1313/pensieve/getting-started/</loc>
+  </url><url>
+    <loc>http://localhost:1313/pensieve/</loc>
+  </url><url>
+    <loc>http://localhost:1313/pensieve/reference/</loc>
+  </url><url>
+    <loc>http://localhost:1313/pensieve/tags/</loc>
+  </url><url>
+    <loc>http://localhost:1313/pensieve/why/</loc>
+  </url>
+</urlset>

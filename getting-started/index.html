@@ -1,0 +1,68 @@
+<!DOCTYPE html>
+<html lang="en-us">
+<head><script src="/pensieve/livereload.js?mindelay=10&amp;v=2&amp;port=1313&amp;path=pensieve/livereload" data-no-instant defer></script>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Getting Started | Pensieve - Contextual Scratchpad for AI Agents</title>
+    <meta name="description" content="A contextual scratchpad for AI agents to capture and recall working knowledge across sessions.">
+    <link rel="stylesheet" href="/pensieve/css/style.css">
+</head>
+<body>
+    <nav class="navbar">
+        <div class="container">
+            <a href="/" class="logo">Pensieve</a>
+            <ul class="nav-links">
+
+                <li><a href="/pensieve/">What?</a></li>
+
+                <li><a href="/pensieve/why/">Why?</a></li>
+
+                <li><a href="/pensieve/getting-started/">Getting Started</a></li>
+
+                <li><a href="/pensieve/demos/">Showcase</a></li>
+
+                <li><a href="/pensieve/reference/">Docs</a></li>
+
+            </ul>
+        </div>
+    </nav>
+    <main class="container">
+
+<h1>Getting Started</h1>
+<h2 id="installation">Installation</h2>
+<h3 id="homebrew-macos">Homebrew (macOS)</h3>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-bash" data-lang="bash"><span style="display:flex;"><span>brew tap cittamaya/pensieve
+</span></span><span style="display:flex;"><span>brew install pensieve
+</span></span></code></pre></div><p><strong>Platform availability:</strong> Currently macOS only. Windows and Linux builds coming soon.</p>
+<h3 id="build-from-source">Build from Source</h3>
+<p>For other platforms or to build from source, see the <a href="https://github.com/cittamaya/pensieve#building-from-source">build instructions</a> on GitHub.</p>
+<h2 id="first-steps">First Steps</h2>
+<ol>
+<li>
+<p><strong>Initialize in a project:</strong></p>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-bash" data-lang="bash"><span style="display:flex;"><span>cd your-project
+</span></span><span style="display:flex;"><span>pensieve init
+</span></span></code></pre></div></li>
+<li>
+<p><strong>Create your first memory:</strong></p>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-bash" data-lang="bash"><span style="display:flex;"><span>pensieve entry create --template problem_solved
+</span></span></code></pre></div></li>
+<li>
+<p><strong>Search past learnings:</strong></p>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-bash" data-lang="bash"><span style="display:flex;"><span>pensieve entry search --tag debugging
+</span></span></code></pre></div></li>
+</ol>
+<h2 id="using-with-claude-code">Using with Claude Code</h2>
+<p>Pensieve integrates with Claude Code through skills. When Claude starts a session, it can automatically recall relevant memories from past sessions.</p>
+
+<ul class="page-list">
+
+</ul>
+
+    </main>
+    <footer class="container">
+        <p>&copy; 2025 Cittamaya</p>
+    </footer>
+    <script src="/pensieve/js/chat-animation.js"></script>
+</body>
+</html>
