@@ -100,7 +100,88 @@ rather than trying multiple formats.
 <h2 id="key-takeaway">Key Takeaway</h2>
 <p>This session demonstrates how a &ldquo;working&rdquo; piece of code can have subtle bugs that only surface with certain data. By recording this learning in pensieve, future Claude sessions will be reminded of this gotcha when encountering similar date parsing scenarios.</p>
 
+
+    <nav class="demo-navigation">
+        <div class="nav-links">
+
+            <a href="/pensieve/demos/session-2-european-data/" class="nav-prev">
+                ← Previous: Session 2: Adding European Data
+            </a>
+
+
+            <a href="/demos" class="nav-index">
+                All Demos
+            </a>
+
+
+        </div>
+    </nav>
 </article>
+
+<style>
+.demo-navigation {
+    margin-top: 3rem;
+    padding-top: 2rem;
+    border-top: 1px solid #e5e7eb;
+}
+
+.demo-navigation .nav-links {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 1rem;
+    flex-wrap: wrap;
+}
+
+.demo-navigation a {
+    padding: 0.75rem 1.25rem;
+    text-decoration: none;
+    border-radius: 0.5rem;
+    transition: all 0.2s;
+    font-weight: 500;
+}
+
+.demo-navigation .nav-prev,
+.demo-navigation .nav-next {
+    background-color: #f3f4f6;
+    color: #374151;
+    flex: 1;
+    min-width: 200px;
+}
+
+.demo-navigation .nav-prev:hover,
+.demo-navigation .nav-next:hover {
+    background-color: #e5e7eb;
+}
+
+.demo-navigation .nav-index {
+    background-color: #3b82f6;
+    color: white;
+}
+
+.demo-navigation .nav-index:hover {
+    background-color: #2563eb;
+}
+
+.demo-navigation .nav-prev {
+    text-align: left;
+}
+
+.demo-navigation .nav-next {
+    text-align: right;
+}
+
+@media (max-width: 768px) {
+    .demo-navigation .nav-links {
+        flex-direction: column;
+    }
+
+    .demo-navigation a {
+        width: 100%;
+        text-align: center;
+    }
+}
+</style>
 
     </main>
     <footer class="container">
