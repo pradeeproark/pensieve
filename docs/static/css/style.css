@@ -156,7 +156,7 @@ body {
 /* Content */
 main {
     min-height: calc(100vh - 200px);
-    padding: 2rem 0;
+    padding: 4rem 0 2rem;
 }
 
 article h1 { margin-bottom: 1.5rem; }
