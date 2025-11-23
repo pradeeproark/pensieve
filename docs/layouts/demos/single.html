@@ -5,7 +5,7 @@
 
     <nav class="demo-navigation">
         <div class="nav-links">
-            {{ with .PrevInSection }}
+            {{ with .NextInSection }}
             <a href="{{ .RelPermalink }}" class="nav-prev">
                 ← Previous: {{ .Title }}
             </a>
@@ -15,7 +15,7 @@
                 All Demos
             </a>
 
-            {{ with .NextInSection }}
+            {{ with .PrevInSection }}
             <a href="{{ .RelPermalink }}" class="nav-next">
                 Next: {{ .Title }} →
             </a>
