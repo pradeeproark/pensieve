@@ -11,7 +11,12 @@
     <nav class="navbar">
         <div class="container">
             <a href="{{ .Site.Home.Permalink }}" class="logo">Pensieve</a>
-            <ul class="nav-links">
+            <button class="hamburger" aria-label="Toggle navigation menu" aria-expanded="false" aria-controls="nav-menu">
+                <span></span>
+                <span></span>
+                <span></span>
+            </button>
+            <ul class="nav-links" id="nav-menu">
                 {{ range .Site.Menus.main }}
                 <li><a href="{{ .URL | relURL }}">{{ .Name }}</a></li>
                 {{ end }}
@@ -24,6 +29,7 @@
     <footer class="container">
         <p>&copy; {{ now.Year }} Cittamaya</p>
     </footer>
+    <script src="{{ "js/navbar.js" | relURL }}"></script>
     <script src="{{ "js/chat-animation.js" | relURL }}"></script>
 </body>
 </html>
