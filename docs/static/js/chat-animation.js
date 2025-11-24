@@ -186,12 +186,74 @@ class ChatAnimator {
     }
 }
 
+/**
+ * ScrollPlayManager - Manages scroll-triggered autoplay for demo sessions
+ */
+class ScrollPlayManager {
+    constructor() {
+        this.animators = new Map();
+        this.observer = null;
+        this.options = {
+            root: null,
+            rootMargin: '0px',
+            threshold: 0.25  // Trigger at 25% visibility
+        };
+    }
+
+    init() {
+        const sessions = document.querySelectorAll('.demo-session');
+
+        // Create intersection observer
+        this.observer = new IntersectionObserver(
+            (entries) => this.handleIntersection(entries),
+            this.options
+        );
+
+        // Initialize and observe each session
+        sessions.forEach((session) => {
+            const story = session.querySelector('.story');
+            if (story) {
+                const animator = new ChatAnimator(story);
+                this.animators.set(session, animator);
+                this.observer.observe(session);
+            }
+        });
+    }
+
+    handleIntersection(entries) {
+        entries.forEach(entry => {
+            const animator = this.animators.get(entry.target);
+            if (!animator) return;
+
+            if (entry.isIntersecting) {
+                // Scrolled into view - play if not already playing
+                if (!animator.isPlaying && animator.currentTurn < animator.turns.length) {
+                    setTimeout(() => animator.play(), 300);
+                }
+            } else {
+                // Scrolled out of view - pause
+                if (animator.isPlaying) {
+                    animator.pause();
+                }
+            }
+        });
+    }
+}
+
 // Auto-initialize on page load
 document.addEventListener('DOMContentLoaded', () => {
-    const stories = document.querySelectorAll('.story');
-    stories.forEach(story => {
-        const animator = new ChatAnimator(story);
-        // Autoplay after short delay
-        setTimeout(() => animator.play(), 500);
-    });
+    if ('IntersectionObserver' in window) {
+        // Modern browsers: scroll-triggered autoplay
+        const manager = new ScrollPlayManager();
+        manager.init();
+    } else {
+        // Fallback: initialize without scroll trigger, autoplay first only
+        const stories = document.querySelectorAll('.story');
+        stories.forEach((story, index) => {
+            const animator = new ChatAnimator(story);
+            if (index === 0) {
+                setTimeout(() => animator.play(), 500);
+            }
+        });
+    }
 });
