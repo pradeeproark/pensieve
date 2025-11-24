@@ -8,7 +8,7 @@ Watch Pensieve in action with Claude Code. This demonstration shows a real conve
 
 <div class="demo-session">
 
-### Session 1: Discovering Date Ambiguity
+<h3 id="session-1">Session 1: Discovering Date Ambiguity</h3>
 
 In this session, we discover a subtle but dangerous bug in CSV date parsing - ambiguous dates that can silently corrupt data.
 
@@ -114,7 +114,7 @@ rather than trying multiple formats.
 
 <div class="demo-session">
 
-### Session 2: Adding European Data
+<h3 id="session-2">Session 2: Adding European Data</h3>
 
 In this session, we add support for European order data. Watch how pensieve recalls the date parsing lesson from Session 1 and prevents us from making the same mistake.
 
@@ -238,7 +238,7 @@ I found the related entry about date parsing. Let me record this confirmation th
 
 <div class="demo-session">
 
-### Session 3: Excel Serial Dates
+<h3 id="session-3">Session 3: Excel Serial Dates</h3>
 
 In this session, we encounter Excel serial dates. Watch how pensieve automatically surfaces BOTH previous date-related memories, demonstrating the compounding value of accumulated knowledge.
 
