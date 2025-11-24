@@ -19,7 +19,7 @@ body {
 .container {
     max-width: 900px;
     margin: 0 auto;
-    padding: 0 1rem;
+    padding: 0 2rem;
 }
 
 /* Navigation */
@@ -55,9 +55,79 @@ body {
 
 .nav-links a:hover { color: var(--accent); }
 
+/* Hamburger button - hidden on desktop */
+.hamburger {
+    display: none;
+    flex-direction: column;
+    gap: 4px;
+    background: none;
+    border: none;
+    cursor: pointer;
+    padding: 0.5rem;
+}
+
+.hamburger span {
+    width: 24px;
+    height: 2px;
+    background: var(--text);
+    transition: all 0.3s;
+}
+
+/* Hamburger animation when active */
+.hamburger.active span:nth-child(1) {
+    transform: rotate(45deg) translate(5px, 5px);
+}
+
+.hamburger.active span:nth-child(2) {
+    opacity: 0;
+}
+
+.hamburger.active span:nth-child(3) {
+    transform: rotate(-45deg) translate(7px, -6px);
+}
+
+/* Mobile Navigation */
+@media (max-width: 768px) {
+    .hamburger {
+        display: flex;
+    }
+
+    .nav-links {
+        position: absolute;
+        top: 100%;
+        left: 0;
+        right: 0;
+        background: var(--bg-secondary);
+        flex-direction: column;
+        gap: 0;
+        padding: 0;
+        max-height: 0;
+        overflow: hidden;
+        transition: max-height 0.3s ease;
+        border-bottom: 1px solid rgba(255,255,255,0.1);
+    }
+
+    .nav-links.active {
+        max-height: 400px;
+    }
+
+    .nav-links li {
+        border-bottom: 1px solid rgba(255,255,255,0.05);
+    }
+
+    .nav-links a {
+        display: block;
+        padding: 1rem 1.5rem;
+    }
+
+    .navbar .container {
+        position: relative;
+    }
+}
+
 /* Hero */
 .hero {
-    padding: 2rem 0;
+    padding: 0 0 2rem 0;
 }
 
 .hero-content {
@@ -99,7 +169,7 @@ body {
 /* Desktop: side-by-side layout */
 @media (min-width: 768px) {
     .hero {
-        padding: 4rem 0 2rem;
+        padding: 0 0 2rem 0;
     }
 
     .hero-content {
@@ -183,6 +253,19 @@ article pre {
 article pre code {
     background: none;
     padding: 0;
+}
+
+/* Story-specific code block constraints */
+.story pre {
+    max-width: 100%;
+    overflow-x: auto;
+    white-space: pre-wrap;
+    word-wrap: break-word;
+}
+
+.story code {
+    word-break: break-word;
+    overflow-wrap: break-word;
 }
 
 /* Chat Animation Controls */
@@ -281,7 +364,9 @@ article pre code {
     height: 60vh;
     min-height: 400px;
     max-height: 600px;
+    max-width: 100%;
     overflow-y: auto;
+    overflow-x: hidden;
     scroll-behavior: smooth;
 }
 
@@ -302,6 +387,30 @@ article pre code {
         width: 100%;
         margin-left: 0;
         margin-top: 0.5rem;
+    }
+
+    /* Ensure code blocks respect viewport on mobile */
+    article pre {
+        max-width: 100%;
+        overflow-x: auto;
+        font-size: 0.8em;
+    }
+
+    article code {
+        word-break: break-word;
+        overflow-wrap: break-word;
+    }
+
+    /* Story code blocks - even more constrained on mobile */
+    .story pre {
+        font-size: 0.75em;
+        padding: 0.75rem;
+        white-space: pre-wrap;
+    }
+
+    .story-turn pre {
+        margin-left: 0;
+        margin-right: 0;
     }
 }
 
@@ -363,18 +472,6 @@ footer {
     grid-template-columns: 1fr;
     gap: 2rem;
     margin-top: 2rem;
-}
-
-@media (min-width: 1024px) {
-    .demo-grid {
-        grid-template-columns: repeat(2, 1fr);
-    }
-
-    .demo-session:nth-child(3) {
-        grid-column: 1 / -1;
-        max-width: 900px;
-        margin: 0 auto;
-    }
 }
 
 .demo-session {
