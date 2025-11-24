@@ -8,7 +8,7 @@ class ChatAnimator {
         this.turns = Array.from(storyElement.querySelectorAll('.story-turn'));
         this.currentTurn = 0;
         this.isPlaying = false;
-        this.speed = 1;
+        this.speed = 0.5;
 
         // Store original content
         this.turnData = this.turns.map(turn => ({
@@ -38,8 +38,8 @@ class ChatAnimator {
             <button class="chat-btn play-btn" title="Play">▶ Play</button>
             <button class="chat-btn skip-btn" title="Skip to end">⏭ Skip</button>
             <label class="speed-control">
-                Speed: <input type="range" min="0.5" max="3" step="0.5" value="1" class="speed-slider">
-                <span class="speed-value">1x</span>
+                Speed: <input type="range" min="0.5" max="3" step="0.5" value="0.5" class="speed-slider">
+                <span class="speed-value">0.5x</span>
             </label>
         `;
 
