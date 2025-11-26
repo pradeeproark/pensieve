@@ -25,6 +25,7 @@ from pensieve.models import (
     FieldType,
     JournalEntry,
     LinkType,
+    Ref,
     Template,
     TemplateField,
 )
@@ -35,7 +36,8 @@ from pensieve.path_utils import (
     validate_project_path,
 )
 from pensieve.queries import search_entries
-from pensieve.validators import ValidationError
+from pensieve.ref_resolver import generate_search_hints, resolve_ref
+from pensieve.validators import ValidationError, validate_refs
 
 
 class AliasedGroup(click.Group):
@@ -314,12 +316,16 @@ def entry() -> None:
 @click.option("--project", required=False, help="Project directory path (auto-detected if omitted)")
 @click.option("--field", "fields", multiple=True, help="Field value key=value (repeatable)")
 @click.option("--tag", "tags", multiple=True, help="Tag to add to entry (repeatable)")
+@click.option(
+    "--ref", "refs", multiple=True, help="Ref in compact format name:k=v,k=v (repeatable)"
+)
 @click.option("--from-file", "file_path", help="Load entry from JSON file")
 def entry_create(
     template_name: str,
     project: str | None,
     fields: tuple[str, ...],
     tags: tuple[str, ...],
+    refs: tuple[str, ...],
     file_path: str | None,
 ) -> None:
     """Create a new journal entry (non-interactive).
@@ -336,6 +342,12 @@ def entry_create(
 
     2. From JSON file:
        pensieve entry create --template problem_solved --from-file entry.json
+
+    Adding refs:
+       pensieve entry create --template decision \\
+         --field title="JWT validation" \\
+         --ref "impl:s=TokenValidator.validate,f=**/auth.py" \\
+         --ref "spec:k=doc,f=docs/security.md,h=## Overview"
 
     Override project:
        pensieve entry create --template problem_solved --project /custom/path --field "..."
@@ -418,6 +430,31 @@ def entry_create(
                     field_values[key] = value
             except ValueError as e:
                 click.echo(f"Error: {e}", err=True)
+                sys.exit(1)
+
+        # Process --ref options if provided
+        if refs:
+            # Find the refs field in the template
+            refs_field_name = None
+            for field in template.fields:
+                if field.type == FieldType.REFS:
+                    refs_field_name = field.name
+                    break
+
+            if refs_field_name is None:
+                click.echo(
+                    f"Error: Template '{template_name}' has no REFS field. "
+                    f"Cannot use --ref option.",
+                    err=True,
+                )
+                sys.exit(1)
+
+            # Parse and validate refs
+            try:
+                validated_refs = validate_refs(list(refs), FieldConstraints())
+                field_values[refs_field_name] = validated_refs
+            except ValidationError as e:
+                click.echo(f"Error parsing refs: {e}", err=True)
                 sys.exit(1)
 
         # Validate all required fields are present
@@ -1092,6 +1129,260 @@ def version() -> None:
         click.echo(f"Pensieve v{__version__}")
         click.echo(f"Schema version: {schema_version}")
         click.echo(f"Database: {db.db_path}")
+
+    finally:
+        db.close()
+
+
+# Ref commands
+
+
+@main.group()
+def ref() -> None:
+    """Manage code and document references on entries."""
+    pass
+
+
+def _get_entry_and_refs(db: Database, entry_id_prefix: str) -> tuple[JournalEntry, str, list[dict]]:
+    """Get entry and its refs field by entry ID prefix.
+
+    Args:
+        db: Database connection
+        entry_id_prefix: First 8 characters of entry UUID
+
+    Returns:
+        Tuple of (entry, refs_field_name, refs_list)
+
+    Raises:
+        click.ClickException: If entry not found or has no refs field
+    """
+    # Search for entry by ID prefix
+    entries = db.search_entries_by_id_prefix(entry_id_prefix)
+    if not entries:
+        raise click.ClickException(f"Entry not found: {entry_id_prefix}")
+    if len(entries) > 1:
+        click.echo(f"Multiple entries match '{entry_id_prefix}':", err=True)
+        for e in entries:
+            click.echo(f"  {e.id}", err=True)
+        raise click.ClickException("Please provide a more specific ID prefix")
+
+    entry = entries[0]
+
+    # Find the refs field in the entry
+    refs_field_name = None
+    refs = []
+
+    # Get template to find refs field
+    template = db.get_template_by_id(entry.template_id)
+    if template:
+        for field in template.fields:
+            if field.type == FieldType.REFS:
+                refs_field_name = field.name
+                refs = entry.field_values.get(field.name, [])
+                break
+
+    if refs_field_name is None:
+        raise click.ClickException(
+            f"Entry's template '{template.name if template else 'unknown'}' has no REFS field"
+        )
+
+    return entry, refs_field_name, refs
+
+
+@ref.command("list")
+@click.argument("entry_id")
+def ref_list(entry_id: str) -> None:
+    """List all refs for an entry.
+
+    ENTRY_ID: First 8 characters of the entry UUID
+    """
+    db = Database()
+
+    try:
+        entry, refs_field_name, refs = _get_entry_and_refs(db, entry_id)
+
+        if not refs:
+            click.echo(f"No refs found for entry {entry_id}")
+            return
+
+        click.echo(f"Refs for entry {str(entry.id)[:8]}:")
+        click.echo()
+
+        for ref_dict in refs:
+            name = ref_dict.get("name", "unnamed")
+            kind = ref_dict.get("kind", "code")
+
+            # Build location description
+            if kind == "code":
+                parts = []
+                if ref_dict.get("s"):
+                    parts.append(f"symbol={ref_dict['s']}")
+                if ref_dict.get("f"):
+                    parts.append(f"file={ref_dict['f']}")
+                if ref_dict.get("t"):
+                    parts.append(f"text='{ref_dict['t']}'")
+                loc = ", ".join(parts) if parts else "no locator"
+            else:  # doc
+                parts = []
+                if ref_dict.get("f"):
+                    parts.append(ref_dict["f"])
+                if ref_dict.get("h"):
+                    parts.append(ref_dict["h"])
+                if ref_dict.get("a"):
+                    parts.append(f"#{ref_dict['a']}")
+                if ref_dict.get("p"):
+                    parts.append(f"page {ref_dict['p']}")
+                loc = " ".join(parts) if parts else "no locator"
+
+            click.echo(f"  {name} ({kind}): {loc}")
+
+    finally:
+        db.close()
+
+
+@ref.command("add")
+@click.argument("entry_id")
+@click.argument("name")
+@click.argument("locator")
+def ref_add(entry_id: str, name: str, locator: str) -> None:
+    """Add a ref to an entry.
+
+    ENTRY_ID: First 8 characters of the entry UUID
+    NAME: Name for the ref (e.g., "impl", "spec", "test")
+    LOCATOR: Ref locator in compact format (e.g., "s=ClassName.method,f=**/*.py")
+
+    Examples:
+        pensieve ref add abc123 impl "s=TokenValidator.validate,f=**/auth.py"
+        pensieve ref add abc123 spec "k=doc,f=docs/security.md,h=## Overview"
+    """
+    db = Database()
+
+    try:
+        entry, refs_field_name, refs = _get_entry_and_refs(db, entry_id)
+
+        # Check if ref name already exists
+        for existing in refs:
+            if existing.get("name") == name:
+                raise click.ClickException(f"Ref '{name}' already exists. Use 'ref remove' first.")
+
+        # Parse and validate the new ref
+        try:
+            # Build compact format string for validation
+            compact_ref = f"{name}:{locator}"
+            validated_refs = validate_refs([compact_ref], FieldConstraints())
+            new_ref = validated_refs[0]
+        except ValidationError as e:
+            raise click.ClickException(f"Invalid ref format: {e}")
+
+        # Add the new ref
+        refs.append(new_ref)
+
+        # Update the entry
+        entry.field_values[refs_field_name] = refs
+        template = db.get_template_by_id(entry.template_id)
+        db.update_entry_field_values(entry.id, entry.field_values, template)
+
+        click.echo(f"✓ Added ref '{name}' to entry {str(entry.id)[:8]}")
+
+    finally:
+        db.close()
+
+
+@ref.command("remove")
+@click.argument("entry_id")
+@click.argument("name")
+def ref_remove(entry_id: str, name: str) -> None:
+    """Remove a ref from an entry.
+
+    ENTRY_ID: First 8 characters of the entry UUID
+    NAME: Name of the ref to remove
+    """
+    db = Database()
+
+    try:
+        entry, refs_field_name, refs = _get_entry_and_refs(db, entry_id)
+
+        # Find and remove the ref
+        original_count = len(refs)
+        refs = [r for r in refs if r.get("name") != name]
+
+        if len(refs) == original_count:
+            raise click.ClickException(f"Ref '{name}' not found in entry {entry_id}")
+
+        # Update the entry
+        entry.field_values[refs_field_name] = refs
+        template = db.get_template_by_id(entry.template_id)
+        db.update_entry_field_values(entry.id, entry.field_values, template)
+
+        click.echo(f"✓ Removed ref '{name}' from entry {str(entry.id)[:8]}")
+
+    finally:
+        db.close()
+
+
+@ref.command("resolve")
+@click.argument("entry_id")
+@click.argument("name", required=False)
+@click.option("--all", "resolve_all", is_flag=True, help="Resolve all refs")
+def ref_resolve(entry_id: str, name: str | None, resolve_all: bool) -> None:
+    """Resolve ref(s) to file locations.
+
+    ENTRY_ID: First 8 characters of the entry UUID
+    NAME: Name of specific ref to resolve (optional if --all)
+
+    Examples:
+        pensieve ref resolve abc123 impl      # Resolve single ref
+        pensieve ref resolve abc123 --all     # Resolve all refs
+    """
+    if not name and not resolve_all:
+        raise click.ClickException("Provide ref NAME or use --all flag")
+
+    db = Database()
+
+    try:
+        entry, refs_field_name, refs = _get_entry_and_refs(db, entry_id)
+
+        # Determine project root
+        project_root = Path(entry.project)
+        if not project_root.exists():
+            click.echo(f"Warning: Project directory not found: {project_root}", err=True)
+            project_root = Path.cwd()
+
+        # Filter refs to resolve
+        if resolve_all:
+            refs_to_resolve = refs
+        else:
+            refs_to_resolve = [r for r in refs if r.get("name") == name]
+            if not refs_to_resolve:
+                raise click.ClickException(f"Ref '{name}' not found in entry {entry_id}")
+
+        # Resolve each ref
+        any_failed = False
+        for ref_dict in refs_to_resolve:
+            ref_name = ref_dict.get("name", "unnamed")
+            try:
+                ref_obj = Ref.model_validate(ref_dict)
+                result = resolve_ref(ref_obj, project_root)
+
+                if result:
+                    if resolve_all:
+                        click.echo(f"{ref_name}: {result}")
+                    else:
+                        click.echo(result)
+                else:
+                    any_failed = True
+                    click.echo(f"{ref_name}: (not found)", err=True)
+                    hints = generate_search_hints(ref_obj)
+                    if hints:
+                        click.echo("  Try:", err=True)
+                        for hint in hints[:3]:  # Limit to 3 hints
+                            click.echo(f"    {hint}", err=True)
+            except Exception as e:
+                any_failed = True
+                click.echo(f"{ref_name}: error - {e}", err=True)
+
+        if any_failed:
+            sys.exit(1)
 
     finally:
         db.close()

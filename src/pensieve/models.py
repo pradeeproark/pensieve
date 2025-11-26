@@ -2,10 +2,10 @@
 
 from datetime import datetime
 from enum import Enum
-from typing import Any
+from typing import Any, Literal
 from uuid import UUID, uuid4
 
-from pydantic import BaseModel, Field, field_validator
+from pydantic import BaseModel, Field, field_validator, model_validator
 
 
 class FieldType(str, Enum):
@@ -16,6 +16,7 @@ class FieldType(str, Enum):
     URL = "url"
     TIMESTAMP = "timestamp"
     FILE_REFERENCE = "file_reference"
+    REFS = "refs"  # Array of location references (code or doc)
 
 
 class EntryStatus(str, Enum):
@@ -164,5 +165,59 @@ class Migration(BaseModel):
     name: str = Field(..., min_length=1, max_length=200)
     applied_at: datetime = Field(default_factory=datetime.utcnow)
     checksum: str = Field(..., min_length=64, max_length=64)  # SHA256 hex
+
+    model_config = {"extra": "forbid"}
+
+
+class Ref(BaseModel):
+    """A single location reference pointing to code or documentation.
+
+    Short keys:
+        k: kind - "code" or "doc" (default: "code")
+        f: file pattern - glob pattern for file matching
+        t: text pattern - grep/search pattern
+        l: line hint - line number (fragile, use as hint only)
+        c: commit - git commit SHA for version anchoring
+        s: symbol - code symbol (e.g., "ClassName.method")
+        h: heading - markdown heading (e.g., "## Setup")
+        p: page - page number (for PDFs)
+        a: anchor - anchor ID (for markdown/HTML)
+    """
+
+    name: str = Field(..., min_length=1, max_length=100)
+    kind: Literal["code", "doc"] = "code"
+
+    # Common fields (both code and doc)
+    f: str | None = None  # file pattern
+    t: str | None = None  # text pattern (grep)
+    line: int | None = Field(default=None, alias="l")  # line hint
+    c: str | None = None  # commit (auto-captured)
+
+    # Code-specific
+    s: str | None = None  # symbol
+
+    # Doc-specific
+    h: str | None = None  # heading
+    p: int | None = None  # page (PDFs)
+    a: str | None = None  # anchor ID
+
+    @model_validator(mode="after")
+    def validate_locator(self) -> "Ref":
+        """Validate that ref has required locator fields based on kind."""
+        if self.kind == "code":
+            if not any([self.s, self.f, self.t]):
+                raise ValueError("Code ref needs at least one of: s, f, t")
+        elif self.kind == "doc":
+            if not self.f:
+                raise ValueError("Doc ref requires file pattern (f)")
+        return self
+
+    model_config = {"extra": "forbid", "populate_by_name": True}
+
+
+class RefsField(BaseModel):
+    """Array of location references for REFS field type."""
+
+    refs: list[Ref] = Field(default_factory=list)
 
     model_config = {"extra": "forbid"}

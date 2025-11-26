@@ -39,10 +39,7 @@ class Database:
                     or defaults to ~/.pensieve/pensieve.db
         """
         if db_path is None:
-            db_path = os.environ.get(
-                "PENSIEVE_DB",
-                str(Path.home() / ".pensieve" / "pensieve.db")
-            )
+            db_path = os.environ.get("PENSIEVE_DB", str(Path.home() / ".pensieve" / "pensieve.db"))
 
         self.db_path = Path(db_path)
         self.db_path.parent.mkdir(parents=True, exist_ok=True)
@@ -79,31 +76,39 @@ class Database:
         """
         try:
             # Insert template
-            self.conn.execute("""
-                INSERT INTO templates (id, name, description, version, created_at, created_by, project)
+            self.conn.execute(
+                """
+                INSERT INTO templates
+                    (id, name, description, version, created_at, created_by, project)
                 VALUES (?, ?, ?, ?, ?, ?, ?)
-            """, (
-                str(template.id),
-                template.name,
-                template.description,
-                template.version,
-                template.created_at.isoformat(),
-                template.created_by,
-                template.project
-            ))
+            """,
+                (
+                    str(template.id),
+                    template.name,
+                    template.description,
+                    template.version,
+                    template.created_at.isoformat(),
+                    template.created_by,
+                    template.project,
+                ),
+            )
 
             # Insert template fields
             for field in template.fields:
-                self.conn.execute("""
-                    INSERT INTO template_fields (template_id, name, type, required, constraints_json)
+                self.conn.execute(
+                    """
+                    INSERT INTO template_fields
+                        (template_id, name, type, required, constraints_json)
                     VALUES (?, ?, ?, ?, ?)
-                """, (
-                    str(template.id),
-                    field.name,
-                    field.type.value,
-                    1 if field.required else 0,
-                    json.dumps(field.constraints.model_dump(exclude_none=True))
-                ))
+                """,
+                    (
+                        str(template.id),
+                        field.name,
+                        field.type.value,
+                        1 if field.required else 0,
+                        json.dumps(field.constraints.model_dump(exclude_none=True)),
+                    ),
+                )
 
             self.conn.commit()
 
@@ -120,11 +125,14 @@ class Database:
         Returns:
             Template if found, None otherwise
         """
-        cursor = self.conn.execute("""
+        cursor = self.conn.execute(
+            """
             SELECT id, name, description, version, created_at, created_by, project
             FROM templates
             WHERE name = ?
-        """, (name,))
+        """,
+            (name,),
+        )
 
         row = cursor.fetchone()
         if row is None:
@@ -141,11 +149,14 @@ class Database:
         Returns:
             Template if found, None otherwise
         """
-        cursor = self.conn.execute("""
+        cursor = self.conn.execute(
+            """
             SELECT id, name, description, version, created_at, created_by, project
             FROM templates
             WHERE id = ?
-        """, (str(template_id),))
+        """,
+            (str(template_id),),
+        )
 
         row = cursor.fetchone()
         if row is None:
@@ -159,11 +170,13 @@ class Database:
         Returns:
             List of all templates
         """
-        cursor = self.conn.execute("""
+        cursor = self.conn.execute(
+            """
             SELECT id, name, description, version, created_at, created_by, project
             FROM templates
             ORDER BY created_at DESC
-        """)
+        """
+        )
 
         return [self._load_template_from_row(row) for row in cursor.fetchall()]
 
@@ -177,22 +190,27 @@ class Database:
             Loaded Template object
         """
         # Load template fields
-        cursor = self.conn.execute("""
+        cursor = self.conn.execute(
+            """
             SELECT name, type, required, constraints_json
             FROM template_fields
             WHERE template_id = ?
             ORDER BY id
-        """, (row["id"],))
+        """,
+            (row["id"],),
+        )
 
         fields = []
         for field_row in cursor.fetchall():
             constraints_data = json.loads(field_row["constraints_json"])
-            fields.append(TemplateField(
-                name=field_row["name"],
-                type=FieldType(field_row["type"]),
-                required=bool(field_row["required"]),
-                constraints=FieldConstraints(**constraints_data)
-            ))
+            fields.append(
+                TemplateField(
+                    name=field_row["name"],
+                    type=FieldType(field_row["type"]),
+                    required=bool(field_row["required"]),
+                    constraints=FieldConstraints(**constraints_data),
+                )
+            )
 
         return Template(
             id=UUID(row["id"]),
@@ -202,7 +220,7 @@ class Database:
             created_at=datetime.fromisoformat(row["created_at"]),
             created_by=row["created_by"],
             project=row["project"],
-            fields=fields
+            fields=fields,
         )
 
     # Journal entry operations
@@ -223,19 +241,24 @@ class Database:
 
         try:
             # Insert entry
-            self.conn.execute("""
-                INSERT INTO journal_entries (id, template_id, template_version, agent, project, timestamp, status, tags)
+            self.conn.execute(
+                """
+                INSERT INTO journal_entries
+                    (id, template_id, template_version, agent, project,
+                     timestamp, status, tags)
                 VALUES (?, ?, ?, ?, ?, ?, ?, ?)
-            """, (
-                str(entry.id),
-                str(entry.template_id),
-                entry.template_version,
-                entry.agent,
-                entry.project,
-                entry.timestamp.isoformat(),
-                entry.status.value,
-                json.dumps(entry.tags)
-            ))
+            """,
+                (
+                    str(entry.id),
+                    str(entry.template_id),
+                    entry.template_version,
+                    entry.agent,
+                    entry.project,
+                    entry.timestamp.isoformat(),
+                    entry.status.value,
+                    json.dumps(entry.tags),
+                ),
+            )
 
             # Insert field values
             for field_name, field_value in entry.field_values.items():
@@ -248,11 +271,7 @@ class Database:
             self.conn.rollback()
             raise DatabaseError(f"Failed to create entry: {e}") from e
 
-    def _validate_entry_against_template(
-        self,
-        entry: JournalEntry,
-        template: Template
-    ) -> None:
+    def _validate_entry_against_template(self, entry: JournalEntry, template: Template) -> None:
         """Validate that entry conforms to template.
 
         Args:
@@ -283,11 +302,7 @@ class Database:
                 entry.field_values[field.name] = validated
 
     def _insert_field_value(
-        self,
-        entry_id: UUID,
-        field_name: str,
-        field_type: FieldType,
-        value: Any
+        self, entry_id: UUID, field_name: str, field_type: FieldType, value: Any
     ) -> None:
         """Insert a field value into the database.
 
@@ -316,23 +331,31 @@ class Database:
             columns["value_timestamp"] = value
         elif field_type == FieldType.FILE_REFERENCE:
             columns["value_file_path"] = value
+        elif field_type == FieldType.REFS:
+            # Store refs as JSON in value_text column
+            import json
 
-        self.conn.execute("""
+            columns["value_text"] = json.dumps(value)
+
+        self.conn.execute(
+            """
             INSERT INTO entry_field_values (
                 entry_id, field_name, field_type,
                 value_text, value_boolean, value_url, value_timestamp, value_file_path
             )
             VALUES (?, ?, ?, ?, ?, ?, ?, ?)
-        """, (
-            str(entry_id),
-            field_name,
-            field_type.value,
-            columns["value_text"],
-            columns["value_boolean"],
-            columns["value_url"],
-            columns["value_timestamp"],
-            columns["value_file_path"]
-        ))
+        """,
+            (
+                str(entry_id),
+                field_name,
+                field_type.value,
+                columns["value_text"],
+                columns["value_boolean"],
+                columns["value_url"],
+                columns["value_timestamp"],
+                columns["value_file_path"],
+            ),
+        )
 
     def get_entry_by_id(self, entry_id: UUID) -> JournalEntry | None:
         """Get journal entry by ID.
@@ -343,11 +366,14 @@ class Database:
         Returns:
             JournalEntry if found, None otherwise
         """
-        cursor = self.conn.execute("""
+        cursor = self.conn.execute(
+            """
             SELECT id, template_id, template_version, agent, project, timestamp, status, tags
             FROM journal_entries
             WHERE id = ?
-        """, (str(entry_id),))
+        """,
+            (str(entry_id),),
+        )
 
         row = cursor.fetchone()
         if row is None:
@@ -365,12 +391,15 @@ class Database:
         Returns:
             List of journal entries
         """
-        cursor = self.conn.execute("""
+        cursor = self.conn.execute(
+            """
             SELECT id, template_id, template_version, agent, project, timestamp, status, tags
             FROM journal_entries
             ORDER BY timestamp DESC
             LIMIT ? OFFSET ?
-        """, (limit, offset))
+        """,
+            (limit, offset),
+        )
 
         return [self._load_entry_from_row(row) for row in cursor.fetchall()]
 
@@ -384,12 +413,15 @@ class Database:
             Loaded JournalEntry object
         """
         # Load field values
-        cursor = self.conn.execute("""
+        cursor = self.conn.execute(
+            """
             SELECT field_name, field_type, value_text, value_boolean,
                    value_url, value_timestamp, value_file_path
             FROM entry_field_values
             WHERE entry_id = ?
-        """, (row["id"],))
+        """,
+            (row["id"],),
+        )
 
         field_values = {}
         for value_row in cursor.fetchall():
@@ -407,6 +439,11 @@ class Database:
                 field_values[field_name] = value_row["value_timestamp"]
             elif field_type == FieldType.FILE_REFERENCE:
                 field_values[field_name] = value_row["value_file_path"]
+            elif field_type == FieldType.REFS:
+                # Parse refs from JSON stored in value_text
+                field_values[field_name] = (
+                    json.loads(value_row["value_text"]) if value_row["value_text"] else []
+                )
 
         # Load status and tags
         status = EntryStatus(row["status"]) if row["status"] else EntryStatus.ACTIVE
@@ -428,7 +465,7 @@ class Database:
             status=status,
             tags=tags,
             links_from=links_from,
-            links_to=links_to
+            links_to=links_to,
         )
 
     def _load_links_from(self, entry_id: UUID) -> list[EntryLink]:
@@ -440,22 +477,27 @@ class Database:
         Returns:
             List of EntryLink objects
         """
-        cursor = self.conn.execute("""
+        cursor = self.conn.execute(
+            """
             SELECT id, source_entry_id, target_entry_id, link_type, created_at, created_by
             FROM entry_links
             WHERE source_entry_id = ?
-        """, (str(entry_id),))
+        """,
+            (str(entry_id),),
+        )
 
         links = []
         for row in cursor.fetchall():
-            links.append(EntryLink(
-                id=UUID(row["id"]),
-                source_entry_id=UUID(row["source_entry_id"]),
-                target_entry_id=UUID(row["target_entry_id"]),
-                link_type=LinkType(row["link_type"]),
-                created_at=datetime.fromisoformat(row["created_at"]),
-                created_by=row["created_by"]
-            ))
+            links.append(
+                EntryLink(
+                    id=UUID(row["id"]),
+                    source_entry_id=UUID(row["source_entry_id"]),
+                    target_entry_id=UUID(row["target_entry_id"]),
+                    link_type=LinkType(row["link_type"]),
+                    created_at=datetime.fromisoformat(row["created_at"]),
+                    created_by=row["created_by"],
+                )
+            )
         return links
 
     def _load_links_to(self, entry_id: UUID) -> list[EntryLink]:
@@ -467,22 +509,27 @@ class Database:
         Returns:
             List of EntryLink objects
         """
-        cursor = self.conn.execute("""
+        cursor = self.conn.execute(
+            """
             SELECT id, source_entry_id, target_entry_id, link_type, created_at, created_by
             FROM entry_links
             WHERE target_entry_id = ?
-        """, (str(entry_id),))
+        """,
+            (str(entry_id),),
+        )
 
         links = []
         for row in cursor.fetchall():
-            links.append(EntryLink(
-                id=UUID(row["id"]),
-                source_entry_id=UUID(row["source_entry_id"]),
-                target_entry_id=UUID(row["target_entry_id"]),
-                link_type=LinkType(row["link_type"]),
-                created_at=datetime.fromisoformat(row["created_at"]),
-                created_by=row["created_by"]
-            ))
+            links.append(
+                EntryLink(
+                    id=UUID(row["id"]),
+                    source_entry_id=UUID(row["source_entry_id"]),
+                    target_entry_id=UUID(row["target_entry_id"]),
+                    link_type=LinkType(row["link_type"]),
+                    created_at=datetime.fromisoformat(row["created_at"]),
+                    created_by=row["created_by"],
+                )
+            )
         return links
 
     def get_linked_entries_batch(
@@ -504,44 +551,54 @@ class Database:
         placeholders = ",".join("?" * len(id_strings))
 
         # Query for all outgoing links
-        cursor_from = self.conn.execute(f"""
+        cursor_from = self.conn.execute(
+            f"""
             SELECT id, source_entry_id, target_entry_id, link_type, created_at, created_by
             FROM entry_links
             WHERE source_entry_id IN ({placeholders})
-        """, id_strings)
+        """,
+            id_strings,
+        )
 
         # Group links_from by source_entry_id
         links_from_map: dict[UUID, list[EntryLink]] = {eid: [] for eid in entry_ids}
         for row in cursor_from.fetchall():
             source_id = UUID(row["source_entry_id"])
-            links_from_map[source_id].append(EntryLink(
-                id=UUID(row["id"]),
-                source_entry_id=source_id,
-                target_entry_id=UUID(row["target_entry_id"]),
-                link_type=LinkType(row["link_type"]),
-                created_at=datetime.fromisoformat(row["created_at"]),
-                created_by=row["created_by"]
-            ))
+            links_from_map[source_id].append(
+                EntryLink(
+                    id=UUID(row["id"]),
+                    source_entry_id=source_id,
+                    target_entry_id=UUID(row["target_entry_id"]),
+                    link_type=LinkType(row["link_type"]),
+                    created_at=datetime.fromisoformat(row["created_at"]),
+                    created_by=row["created_by"],
+                )
+            )
 
         # Query for all incoming links
-        cursor_to = self.conn.execute(f"""
+        cursor_to = self.conn.execute(
+            f"""
             SELECT id, source_entry_id, target_entry_id, link_type, created_at, created_by
             FROM entry_links
             WHERE target_entry_id IN ({placeholders})
-        """, id_strings)
+        """,
+            id_strings,
+        )
 
         # Group links_to by target_entry_id
         links_to_map: dict[UUID, list[EntryLink]] = {eid: [] for eid in entry_ids}
         for row in cursor_to.fetchall():
             target_id = UUID(row["target_entry_id"])
-            links_to_map[target_id].append(EntryLink(
-                id=UUID(row["id"]),
-                source_entry_id=UUID(row["source_entry_id"]),
-                target_entry_id=target_id,
-                link_type=LinkType(row["link_type"]),
-                created_at=datetime.fromisoformat(row["created_at"]),
-                created_by=row["created_by"]
-            ))
+            links_to_map[target_id].append(
+                EntryLink(
+                    id=UUID(row["id"]),
+                    source_entry_id=UUID(row["source_entry_id"]),
+                    target_entry_id=target_id,
+                    link_type=LinkType(row["link_type"]),
+                    created_at=datetime.fromisoformat(row["created_at"]),
+                    created_by=row["created_by"],
+                )
+            )
 
         # Combine into result dict
         result = {}
@@ -568,17 +625,22 @@ class Database:
             raise DatabaseError(f"Target entry '{link.target_entry_id}' not found")
 
         try:
-            self.conn.execute("""
-                INSERT INTO entry_links (id, source_entry_id, target_entry_id, link_type, created_at, created_by)
+            self.conn.execute(
+                """
+                INSERT INTO entry_links
+                    (id, source_entry_id, target_entry_id, link_type,
+                     created_at, created_by)
                 VALUES (?, ?, ?, ?, ?, ?)
-            """, (
-                str(link.id),
-                str(link.source_entry_id),
-                str(link.target_entry_id),
-                link.link_type.value,
-                link.created_at.isoformat(),
-                link.created_by
-            ))
+            """,
+                (
+                    str(link.id),
+                    str(link.source_entry_id),
+                    str(link.target_entry_id),
+                    link.link_type.value,
+                    link.created_at.isoformat(),
+                    link.created_by,
+                ),
+            )
             self.conn.commit()
         except sqlite3.IntegrityError as e:
             self.conn.rollback()
@@ -588,7 +650,9 @@ class Database:
                     f"{link.target_entry_id} with type '{link.link_type.value}'"
                 ) from e
             elif "CHECK constraint failed" in str(e):
-                raise DatabaseError("Cannot create self-link (source and target are the same)") from e
+                raise DatabaseError(
+                    "Cannot create self-link (source and target are the same)"
+                ) from e
             raise DatabaseError(f"Failed to create link: {e}") from e
         except Exception as e:
             self.conn.rollback()
@@ -608,11 +672,14 @@ class Database:
             raise DatabaseError(f"Entry '{entry_id}' not found")
 
         try:
-            self.conn.execute("""
+            self.conn.execute(
+                """
                 UPDATE journal_entries
                 SET status = ?
                 WHERE id = ?
-            """, (status.value, str(entry_id)))
+            """,
+                (status.value, str(entry_id)),
+            )
             self.conn.commit()
         except Exception as e:
             self.conn.rollback()
@@ -638,11 +705,14 @@ class Database:
         updated_tags = sorted(new_tags)  # Sort for consistency
 
         try:
-            self.conn.execute("""
+            self.conn.execute(
+                """
                 UPDATE journal_entries
                 SET tags = ?
                 WHERE id = ?
-            """, (json.dumps(updated_tags), str(entry_id)))
+            """,
+                (json.dumps(updated_tags), str(entry_id)),
+            )
             self.conn.commit()
         except Exception as e:
             self.conn.rollback()
@@ -667,11 +737,14 @@ class Database:
         updated_tags = sorted(existing_tags - set(tags_to_remove))
 
         try:
-            self.conn.execute("""
+            self.conn.execute(
+                """
                 UPDATE journal_entries
                 SET tags = ?
                 WHERE id = ?
-            """, (json.dumps(updated_tags), str(entry_id)))
+            """,
+                (json.dumps(updated_tags), str(entry_id)),
+            )
             self.conn.commit()
         except Exception as e:
             self.conn.rollback()
@@ -689,7 +762,8 @@ class Database:
         """
         if project is None:
             # Query all projects
-            cursor = self.conn.execute("""
+            cursor = self.conn.execute(
+                """
                 SELECT
                     json_each.value as tag,
                     COUNT(*) as entry_count
@@ -697,10 +771,12 @@ class Database:
                 JOIN json_each(journal_entries.tags)
                 GROUP BY tag
                 ORDER BY entry_count DESC, tag ASC
-            """)
+            """
+            )
         else:
             # Query specific project
-            cursor = self.conn.execute("""
+            cursor = self.conn.execute(
+                """
                 SELECT
                     json_each.value as tag,
                     COUNT(*) as entry_count
@@ -709,6 +785,130 @@ class Database:
                 WHERE project = ?
                 GROUP BY tag
                 ORDER BY entry_count DESC, tag ASC
-            """, (project,))
+            """,
+                (project,),
+            )
 
         return [(row["tag"], row["entry_count"]) for row in cursor.fetchall()]
+
+    def search_entries_by_id_prefix(self, id_prefix: str) -> list[JournalEntry]:
+        """Search for entries by ID prefix.
+
+        Args:
+            id_prefix: First 8 (or more) characters of entry UUID
+
+        Returns:
+            List of matching JournalEntry objects
+        """
+        cursor = self.conn.execute(
+            """
+            SELECT id, template_id, template_version, agent, project, timestamp, status, tags
+            FROM journal_entries
+            WHERE id LIKE ?
+        """,
+            (f"{id_prefix}%",),
+        )
+
+        entries = []
+        for row in cursor.fetchall():
+            entry = self._load_entry_from_row(row)
+            if entry:
+                entries.append(entry)
+        return entries
+
+    def _load_entry_from_row(self, row) -> JournalEntry | None:
+        """Load a JournalEntry from a database row.
+
+        Args:
+            row: Database row dict
+
+        Returns:
+            JournalEntry or None if loading fails
+        """
+        # Load field values
+        cursor = self.conn.execute(
+            """
+            SELECT field_name, field_type, value_text, value_boolean,
+                   value_url, value_timestamp, value_file_path
+            FROM entry_field_values
+            WHERE entry_id = ?
+        """,
+            (row["id"],),
+        )
+
+        field_values = {}
+        for value_row in cursor.fetchall():
+            field_type = FieldType(value_row["field_type"])
+            field_name = value_row["field_name"]
+
+            # Extract value based on type
+            if field_type == FieldType.BOOLEAN:
+                field_values[field_name] = bool(value_row["value_boolean"])
+            elif field_type == FieldType.TEXT:
+                field_values[field_name] = value_row["value_text"]
+            elif field_type == FieldType.URL:
+                field_values[field_name] = value_row["value_url"]
+            elif field_type == FieldType.TIMESTAMP:
+                field_values[field_name] = value_row["value_timestamp"]
+            elif field_type == FieldType.FILE_REFERENCE:
+                field_values[field_name] = value_row["value_file_path"]
+            elif field_type == FieldType.REFS:
+                field_values[field_name] = (
+                    json.loads(value_row["value_text"]) if value_row["value_text"] else []
+                )
+
+        # Load status and tags
+        status = EntryStatus(row["status"]) if row["status"] else EntryStatus.ACTIVE
+        tags = json.loads(row["tags"]) if row["tags"] else []
+
+        # Load links from and to this entry
+        entry_id = UUID(row["id"])
+        links_from = self._load_links_from(entry_id)
+        links_to = self._load_links_to(entry_id)
+
+        return JournalEntry(
+            id=entry_id,
+            template_id=UUID(row["template_id"]),
+            template_version=row["template_version"],
+            agent=row["agent"],
+            project=row["project"],
+            timestamp=datetime.fromisoformat(row["timestamp"]),
+            field_values=field_values,
+            status=status,
+            tags=tags,
+            links_from=links_from,
+            links_to=links_to,
+        )
+
+    def update_entry_field_values(
+        self, entry_id: UUID, field_values: dict, template: Template
+    ) -> None:
+        """Update field values for an existing entry.
+
+        Args:
+            entry_id: Entry UUID
+            field_values: New field values dict
+            template: Template the entry is based on
+
+        Raises:
+            DatabaseError: If database operation fails
+        """
+        try:
+            # Delete existing field values
+            self.conn.execute(
+                """
+                DELETE FROM entry_field_values WHERE entry_id = ?
+            """,
+                (str(entry_id),),
+            )
+
+            # Re-insert with new values
+            for field in template.fields:
+                if field.name in field_values:
+                    value = field_values[field.name]
+                    self._insert_field_value(entry_id, field.name, field.type, value)
+
+            self.conn.commit()
+        except Exception as e:
+            self.conn.rollback()
+            raise DatabaseError(f"Failed to update entry field values: {e}") from e
