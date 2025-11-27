@@ -1243,17 +1243,20 @@ def ref_list(entry_id: str) -> None:
 @ref.command("add")
 @click.argument("entry_id")
 @click.argument("name")
-@click.argument("locator")
+@click.option(
+    "--locator",
+    required=True,
+    help="Ref locator in compact format (e.g., 's=ClassName.method,f=**/*.py')",
+)
 def ref_add(entry_id: str, name: str, locator: str) -> None:
     """Add a ref to an entry.
 
     ENTRY_ID: First 8 characters of the entry UUID
     NAME: Name for the ref (e.g., "impl", "spec", "test")
-    LOCATOR: Ref locator in compact format (e.g., "s=ClassName.method,f=**/*.py")
 
     Examples:
-        pensieve ref add abc123 impl "s=TokenValidator.validate,f=**/auth.py"
-        pensieve ref add abc123 spec "k=doc,f=docs/security.md,h=## Overview"
+        pensieve ref add abc123 impl --locator "s=TokenValidator.validate,f=**/auth.py"
+        pensieve ref add abc123 spec --locator "k=doc,f=docs/security.md,h=## Overview"
     """
     db = Database()
 

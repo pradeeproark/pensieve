@@ -155,7 +155,7 @@ class TestRefAdd:
 
         result = runner.invoke(
             main,
-            ["ref", "add", entry_id, "test", "t=def validate(self"],
+            ["ref", "add", entry_id, "test", "--locator", "t=def validate(self"],
         )
 
         assert result.exit_code == 0
@@ -168,7 +168,14 @@ class TestRefAdd:
 
         result = runner.invoke(
             main,
-            ["ref", "add", entry_id, "overview", "k=doc,f=docs/security.md,h=## Overview"],
+            [
+                "ref",
+                "add",
+                entry_id,
+                "overview",
+                "--locator",
+                "k=doc,f=docs/security.md,h=## Overview",
+            ],
         )
 
         assert result.exit_code == 0
@@ -181,7 +188,7 @@ class TestRefAdd:
         # Missing locator fields
         result = runner.invoke(
             main,
-            ["ref", "add", entry_id, "bad", "k=code"],
+            ["ref", "add", entry_id, "bad", "--locator", "k=code"],
         )
 
         assert result.exit_code != 0
