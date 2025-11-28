@@ -165,3 +165,35 @@ class TestEntryCreate:
 
         assert result.exit_code != 0
         assert "❌ Error: Cannot use --tag during entry creation" in result.output
+
+
+class TestEntrySearch:
+    """Tests for entry search command."""
+
+    def test_search_rejects_positional_args(self, temp_db: Path) -> None:
+        """Positional arguments should show helpful error."""
+        runner = CliRunner()
+        result = runner.invoke(main, ["entry", "search", "oauth bug"])
+
+        assert result.exit_code == 1
+        assert "not a valid search syntax" in result.output
+        assert "--tag" in result.output
+        assert "--field" in result.output
+
+    def test_search_rejects_multiple_positional_args(self, temp_db: Path) -> None:
+        """Multiple positional args should be joined in error message."""
+        runner = CliRunner()
+        result = runner.invoke(main, ["entry", "search", "oauth", "token", "issue"])
+
+        assert result.exit_code == 1
+        assert "oauth token issue" in result.output
+        assert "not a valid search syntax" in result.output
+
+    def test_search_works_normally_with_flags(self, temp_db: Path) -> None:
+        """Normal flag-based search should still work."""
+        runner = CliRunner()
+        result = runner.invoke(main, ["entry", "search", "--all-projects"])
+
+        assert result.exit_code == 0
+        # Either finds entries or reports none found
+        assert "Found" in result.output or "No entries found" in result.output

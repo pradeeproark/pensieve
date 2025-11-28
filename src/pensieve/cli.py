@@ -708,7 +708,9 @@ def entry_show(entry_id: str, follow_links: bool, depth: int) -> None:
 @click.option("--linked-to", help="Filter entries that link TO this entry ID")
 @click.option("--linked-from", help="Filter entries linked FROM this entry ID")
 @click.option("--limit", default=50, help="Maximum number of results")
+@click.argument("query", nargs=-1)  # Capture unexpected positional args for helpful error
 def entry_search(
+    query: tuple[str, ...],
     template: str | None,
     agent: str | None,
     project: str | None,
@@ -729,6 +731,21 @@ def entry_search(
     By default, searches are limited to the current project (auto-detected from git repository
     or current directory). Use --all-projects to search across all projects.
     """
+    # Handle positional argument misuse (agents often try "pensieve entry search 'some text'")
+    if query:
+        query_text = " ".join(query)
+        click.echo(f'"{query_text}" is not a valid search syntax.\n', err=True)
+        click.echo("Search requires flags. Examples:\n", err=True)
+        click.echo("  By tag:      pensieve entry search --tag <keyword>", err=True)
+        click.echo(
+            '  By field:    pensieve entry search --field summary --value "text" --substring',
+            err=True,
+        )
+        click.echo("  By template: pensieve entry search --template <template_name>", err=True)
+        click.echo("  All entries: pensieve entry search --all-projects\n", err=True)
+        click.echo("Run `pensieve entry search --help` for all options.", err=True)
+        sys.exit(1)
+
     db = Database()
 
     try:
