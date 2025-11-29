@@ -732,18 +732,18 @@ def entry_search(
     or current directory). Use --all-projects to search across all projects.
     """
     # Handle positional argument misuse (agents often try "pensieve entry search 'some text'")
+    # Output to stdout (not stderr) so hints are visible even with 2>/dev/null
     if query:
         query_text = " ".join(query)
-        click.echo(f'"{query_text}" is not a valid search syntax.\n', err=True)
-        click.echo("Search requires flags. Examples:\n", err=True)
-        click.echo("  By tag:      pensieve entry search --tag <keyword>", err=True)
+        click.echo(f'"{query_text}" is not a valid search syntax.\n')
+        click.echo("Search requires flags. Examples:\n")
+        click.echo("  By tag:      pensieve entry search --tag <keyword>")
         click.echo(
             '  By field:    pensieve entry search --field summary --value "text" --substring',
-            err=True,
         )
-        click.echo("  By template: pensieve entry search --template <template_name>", err=True)
-        click.echo("  All entries: pensieve entry search --all-projects\n", err=True)
-        click.echo("Run `pensieve entry search --help` for all options.", err=True)
+        click.echo("  By template: pensieve entry search --template <template_name>")
+        click.echo("  All entries: pensieve entry search --all-projects\n")
+        click.echo("Run `pensieve entry search --help` for all options.")
         sys.exit(1)
 
     db = Database()
