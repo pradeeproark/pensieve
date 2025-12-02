@@ -180,6 +180,47 @@ class Database:
 
         return [self._load_template_from_row(row) for row in cursor.fetchall()]
 
+    def get_templates_with_field(self, field_name: str) -> list[str]:
+        """Return template names that have the specified field.
+
+        Args:
+            field_name: Name of the field to search for
+
+        Returns:
+            List of template names that contain the field
+        """
+        cursor = self.conn.execute(
+            """
+            SELECT DISTINCT t.name
+            FROM templates t
+            JOIN template_fields tf ON t.id = tf.template_id
+            WHERE tf.name = ?
+            """,
+            (field_name,),
+        )
+        return [row["name"] for row in cursor.fetchall()]
+
+    def get_common_field_names(self, limit: int = 10) -> list[str]:
+        """Return the most common field names across all templates.
+
+        Args:
+            limit: Maximum number of field names to return
+
+        Returns:
+            List of field names ordered by usage count (most common first)
+        """
+        cursor = self.conn.execute(
+            """
+            SELECT name, COUNT(*) as usage_count
+            FROM template_fields
+            GROUP BY name
+            ORDER BY usage_count DESC
+            LIMIT ?
+            """,
+            (limit,),
+        )
+        return [row["name"] for row in cursor.fetchall()]
+
     def _load_template_from_row(self, row: sqlite3.Row) -> Template:
         """Load template from database row.
 

@@ -739,7 +739,7 @@ def entry_search(
         click.echo("Search requires flags. Examples:\n")
         click.echo("  By tag:      pensieve entry search --tag <keyword>")
         click.echo(
-            '  By field:    pensieve entry search --field summary --value "text" --substring',
+            '  By field:    pensieve entry search --field <field_name> --value "text" --substring',
         )
         click.echo("  By template: pensieve entry search --template <template_name>")
         click.echo("  All entries: pensieve entry search --all-projects\n")
@@ -756,6 +756,19 @@ def entry_search(
         if value and not field:
             click.echo("Error: --field is required when --value is specified", err=True)
             sys.exit(1)
+
+        # Validate field exists in at least one template (warning, not error)
+        if field:
+            templates_with_field = db.get_templates_with_field(field)
+            if not templates_with_field:
+                available_fields = db.get_common_field_names(limit=10)
+                click.echo(f"⚠️  Warning: No templates have a field named '{field}'", err=True)
+                if available_fields:
+                    click.echo(f"   Available fields: {', '.join(available_fields)}", err=True)
+                click.echo(
+                    "   Tip: Try tag-based search: pensieve entry search --tag <keyword>\n",
+                    err=True,
+                )
 
         # Handle project filtering with auto-detection
         auto_detected = False
@@ -809,6 +822,24 @@ def entry_search(
                 click.echo(f"ℹ️  INFO: Searched in auto-detected project: {expanded}")
                 click.echo("    Use --all-projects to search across all projects\n")
             click.echo("No entries found matching criteria")
+
+            # Show available fields when field search returns nothing
+            if field:
+                templates_with_field = db.get_templates_with_field(field)
+                if not templates_with_field:
+                    click.echo(f"\n⚠️  No templates have a field named '{field}'")
+
+                # Show available fields to help the agent
+                common_fields = db.get_common_field_names(limit=8)
+                if common_fields:
+                    click.echo(f"\n📋 Available fields: {', '.join(common_fields)}")
+                    click.echo(
+                        "   Example: pensieve entry search --field <name> --value text --substring"
+                    )
+
+                # Suggest tag search as alternative
+                click.echo("\n💡 Tip: Try tag-based search instead:")
+                click.echo("   pensieve entry search --tag <keyword>")
             return
 
         # Show info message when project filter is auto-applied

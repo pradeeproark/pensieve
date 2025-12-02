@@ -197,3 +197,49 @@ class TestEntrySearch:
         assert result.exit_code == 0
         # Either finds entries or reports none found
         assert "Found" in result.output or "No entries found" in result.output
+
+    def test_search_hint_uses_placeholder_not_example_field(self, temp_db: Path) -> None:
+        """Search hint should use placeholder <field_name> not a specific field like 'summary'."""
+        runner = CliRunner()
+        result = runner.invoke(main, ["entry", "search", "free form text"])
+
+        assert result.exit_code == 1
+        assert "<field_name>" in result.output
+        assert "--field summary" not in result.output
+
+    def test_search_warns_for_nonexistent_field(self, temp_db: Path) -> None:
+        """Should warn when searching for a field that doesn't exist in any template."""
+        runner = CliRunner()
+        result = runner.invoke(
+            main,
+            [
+                "entry",
+                "search",
+                "--field",
+                "nonexistent_field_xyz",
+                "--value",
+                "test",
+                "--substring",
+            ],
+        )
+
+        assert result.exit_code == 0
+        # Should show warning about non-existent field
+        assert "No templates have a field named 'nonexistent_field_xyz'" in result.output
+        # Should suggest available fields
+        assert "Available fields:" in result.output or "title" in result.output
+
+    def test_search_shows_available_fields_on_no_results(self, temp_db: Path) -> None:
+        """Should show available fields when field search returns 0 results."""
+        runner = CliRunner()
+        result = runner.invoke(
+            main,
+            ["entry", "search", "--field", "title", "--value", "nomatchxyz", "--substring"],
+        )
+
+        assert result.exit_code == 0
+        assert "No entries found" in result.output
+        # Should show available fields since we searched by field
+        assert "Available fields:" in result.output
+        # Should suggest tag search as alternative
+        assert "tag-based search" in result.output.lower() or "--tag" in result.output
