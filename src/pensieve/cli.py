@@ -3,6 +3,9 @@
 import json
 import os
 import sys
+from collections import Counter
+from datetime import datetime, timedelta
+from itertools import groupby
 from pathlib import Path
 from uuid import UUID
 
@@ -35,7 +38,7 @@ from pensieve.path_utils import (
     normalize_project_search,
     validate_project_path,
 )
-from pensieve.queries import search_entries
+from pensieve.queries import QueryBuilder, search_entries
 from pensieve.ref_resolver import generate_search_hints, resolve_ref
 from pensieve.validators import ValidationError, validate_refs
 
@@ -1177,6 +1180,197 @@ def version() -> None:
         click.echo(f"Pensieve v{__version__}")
         click.echo(f"Schema version: {schema_version}")
         click.echo(f"Database: {db.db_path}")
+
+    finally:
+        db.close()
+
+
+# Journal command
+
+
+def _compute_journal_stats(entries: list[JournalEntry], db: Database) -> dict:
+    """Compute aggregated statistics for journal entries.
+
+    Args:
+        entries: List of journal entries
+        db: Database instance for template lookups
+
+    Returns:
+        Dictionary with counts, top tags, and top template
+    """
+    template_counts: Counter = Counter()
+    tag_counts: Counter = Counter()
+
+    for entry in entries:
+        # Get template name
+        template = db.get_template_by_id(entry.template_id)
+        template_name = template.name if template else "(unknown)"
+        template_counts[template_name] += 1
+
+        # Count tags
+        for tag in entry.tags:
+            tag_counts[tag] += 1
+
+    return {
+        "total": len(entries),
+        "templates": len(template_counts),
+        "unique_tags": len(tag_counts),
+        "top_tags": tag_counts.most_common(3),
+        "top_template": template_counts.most_common(1)[0] if template_counts else None,
+        "template_counts": template_counts,
+    }
+
+
+def _get_entry_summary(entry: JournalEntry, template, max_len: int = 50) -> str:
+    """Extract primary text field from entry for summary display.
+
+    Args:
+        entry: Journal entry
+        template: Template object
+        max_len: Maximum length before truncation
+
+    Returns:
+        Truncated summary text from first TEXT field
+    """
+    if not template:
+        return ""
+
+    for field in template.fields:
+        if field.type == FieldType.TEXT and field.name in entry.field_values:
+            value = str(entry.field_values[field.name])
+            if len(value) > max_len:
+                return value[:max_len] + "..."
+            return value
+    return ""
+
+
+@main.command()
+@click.option("--days", default=14, type=int, help="Lookback period in days (default: 14)")
+@click.option(
+    "--all-projects",
+    is_flag=True,
+    help="Include all projects (default: current project only)",
+)
+def journal(days: int, all_projects: bool) -> None:
+    """Show project journal with recent activity summary.
+
+    Displays a timeline of recent entries with aggregated statistics,
+    helping you quickly understand what's been happening in a project.
+
+    Examples:
+        pensieve journal              # Last 14 days, current project
+        pensieve journal --days 30    # Last 30 days
+        pensieve journal --days 7 --all-projects  # Last week, all projects
+    """
+    # Validate --days
+    if days < 1:
+        click.echo("Error: --days must be a positive integer", err=True)
+        sys.exit(1)
+
+    db = Database()
+
+    try:
+        # Determine project scope
+        if all_projects:
+            project = None
+            project_display = "all projects"
+        else:
+            project = auto_detect_project()
+            project = normalize_project_search(project)
+            project_display = expand_project_path(project)
+
+        # Calculate date range
+        from_date = datetime.now() - timedelta(days=days)
+        to_date = datetime.now()
+
+        # Query entries
+        query = QueryBuilder(db)
+        query.by_date_range(from_date=from_date)
+        if project:
+            query.by_project(project)
+        entries = query.execute(limit=500)  # Higher limit for journal view
+
+        # Handle empty results
+        if not entries:
+            click.echo(f"No entries in the last {days} days.")
+            if days < 30:
+                click.echo("Try: pensieve journal --days 30")
+            return
+
+        # Compute statistics
+        stats = _compute_journal_stats(entries, db)
+
+        # Format date range for display
+        date_from = from_date.strftime("%b %d")
+        date_to = to_date.strftime("%b %d, %Y")
+
+        # --- Output Header ---
+        if all_projects:
+            click.echo("\n📊 Project Journal: all projects")
+        else:
+            # Extract just the project name from the path
+            project_name = Path(project_display).name
+            click.echo(f"\n📊 Project Journal: {project_name}")
+
+        click.echo(f"   Last {days} days ({date_from} - {date_to})")
+        click.echo()
+        click.echo(
+            f"   {stats['total']} entries │ "
+            f"{stats['templates']} templates │ "
+            f"{stats['unique_tags']} unique tags"
+        )
+
+        # Focus areas (top tags)
+        if stats["top_tags"]:
+            focus_parts = [f"{tag} ({count})" for tag, count in stats["top_tags"]]
+            click.echo(f"   Focus areas: {', '.join(focus_parts)}")
+
+        click.echo()
+        click.echo("━" * 50)
+
+        # --- Timeline ---
+        # Group entries by date
+        sorted_entries = sorted(entries, key=lambda e: e.timestamp, reverse=True)
+        for date, date_entries in groupby(sorted_entries, key=lambda e: e.timestamp.date()):
+            click.echo()
+            click.echo(f"📅 {date.strftime('%b %d, %Y')}")
+
+            for entry in date_entries:
+                template = db.get_template_by_id(entry.template_id)
+                template_name = template.name if template else "(unknown)"
+                summary = _get_entry_summary(entry, template)
+                short_id = str(entry.id)[:8]
+
+                click.echo(f"   • [{template_name}] {summary}")
+                if entry.tags:
+                    click.echo(f"     Tags: {', '.join(entry.tags)}")
+                click.echo(f"     ID: {short_id}")
+
+        click.echo()
+        click.echo("━" * 50)
+
+        # --- Contextual Hints ---
+        click.echo()
+        click.echo("💡 Next steps:")
+
+        # Most recent entry ID
+        most_recent_id = str(entries[0].id)[:8]
+        click.echo(f"   • View entry: pensieve entry show {most_recent_id}")
+
+        # Top tag suggestion
+        if stats["top_tags"]:
+            top_tag, top_tag_count = stats["top_tags"][0]
+            click.echo(
+                f'   • Explore "{top_tag}" tag ({top_tag_count} entries): '
+                f"pensieve entry search --tag {top_tag}"
+            )
+
+        # Top template suggestion
+        if stats["top_template"]:
+            top_template, _ = stats["top_template"]
+            click.echo(
+                f"   • See {top_template}: " f"pensieve entry search --template {top_template}"
+            )
 
     finally:
         db.close()

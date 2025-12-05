@@ -1,13 +1,14 @@
 """Tests for CLI commands."""
 
 import os
+from datetime import datetime, timedelta
 from pathlib import Path
 
 import pytest
 from click.testing import CliRunner
 from pensieve.cli import main
 from pensieve.database import Database
-from pensieve.models import FieldType, Template, TemplateField
+from pensieve.models import FieldType, JournalEntry, Template, TemplateField
 
 
 @pytest.fixture
@@ -243,3 +244,171 @@ class TestEntrySearch:
         assert "Available fields:" in result.output
         # Should suggest tag search as alternative
         assert "tag-based search" in result.output.lower() or "--tag" in result.output
+
+
+@pytest.fixture
+def temp_db_with_entries(tmp_path: Path):
+    """Create a temporary database with test entries for journal tests."""
+    db_path = tmp_path / "test_pensieve.db"
+    os.environ["PENSIEVE_DB"] = str(db_path)
+
+    db = Database()
+
+    # Create test template
+    template = Template(
+        name="test_template",
+        version=1,
+        description="Test template for journal tests",
+        created_by="test_user",
+        project=str(tmp_path),
+        fields=[
+            TemplateField(
+                name="summary", type=FieldType.TEXT, required=True, description="Summary"
+            ),
+        ],
+    )
+    db.create_template(template)
+
+    # Create entries at different times
+    now = datetime.now()
+
+    # Entry from today
+    entry1 = JournalEntry(
+        template_id=template.id,
+        template_version=1,
+        agent="test_user",
+        project=str(tmp_path),
+        field_values={"summary": "Recent entry from today"},
+        tags=["recent", "test"],
+    )
+    db.create_entry(entry1, template)
+
+    # Entry from 5 days ago
+    entry2 = JournalEntry(
+        template_id=template.id,
+        template_version=1,
+        agent="test_user",
+        project=str(tmp_path),
+        field_values={"summary": "Entry from 5 days ago"},
+        tags=["older", "test"],
+    )
+    db.create_entry(entry2, template)
+    # Manually update timestamp to 5 days ago
+    db.conn.execute(
+        "UPDATE journal_entries SET timestamp = ? WHERE id = ?",
+        ((now - timedelta(days=5)).isoformat(), str(entry2.id)),
+    )
+
+    # Entry from 20 days ago
+    entry3 = JournalEntry(
+        template_id=template.id,
+        template_version=1,
+        agent="test_user",
+        project=str(tmp_path),
+        field_values={"summary": "Old entry from 20 days ago"},
+        tags=["old"],
+    )
+    db.create_entry(entry3, template)
+    # Manually update timestamp to 20 days ago
+    db.conn.execute(
+        "UPDATE journal_entries SET timestamp = ? WHERE id = ?",
+        ((now - timedelta(days=20)).isoformat(), str(entry3.id)),
+    )
+
+    db.conn.commit()
+    db.close()
+
+    yield tmp_path
+
+    # Cleanup
+    if "PENSIEVE_DB" in os.environ:
+        del os.environ["PENSIEVE_DB"]
+
+
+class TestJournal:
+    """Tests for journal command."""
+
+    def test_journal_shows_entries_in_date_range(self, temp_db_with_entries: Path) -> None:
+        """Journal should show entries within the default 14-day range."""
+        runner = CliRunner()
+        # Use --all-projects since test entries have different project path
+        result = runner.invoke(main, ["journal", "--all-projects"])
+
+        assert result.exit_code == 0
+        assert "Project Journal:" in result.output
+        assert "Recent entry from today" in result.output
+        assert "Entry from 5 days ago" in result.output
+        # Entry from 20 days ago should NOT appear (outside 14-day default)
+        assert "Old entry from 20 days ago" not in result.output
+
+    def test_journal_days_flag_expands_range(self, temp_db_with_entries: Path) -> None:
+        """--days flag should include older entries."""
+        runner = CliRunner()
+        result = runner.invoke(main, ["journal", "--days", "30", "--all-projects"])
+
+        assert result.exit_code == 0
+        assert "Last 30 days" in result.output
+        # Now should include the 20-day-old entry
+        assert "Old entry from 20 days ago" in result.output
+
+    def test_journal_days_flag_narrows_range(self, temp_db_with_entries: Path) -> None:
+        """--days 3 should exclude 5-day-old entry."""
+        runner = CliRunner()
+        result = runner.invoke(main, ["journal", "--days", "3", "--all-projects"])
+
+        assert result.exit_code == 0
+        assert "Last 3 days" in result.output
+        assert "Recent entry from today" in result.output
+        # 5-day-old entry should NOT appear
+        assert "Entry from 5 days ago" not in result.output
+
+    def test_journal_invalid_days_fails(self, temp_db_with_entries: Path) -> None:
+        """--days 0 or negative should fail with helpful error."""
+        runner = CliRunner()
+        result = runner.invoke(main, ["journal", "--days", "0"])
+
+        assert result.exit_code == 1
+        assert "must be a positive integer" in result.output
+
+    def test_journal_empty_result_suggests_longer_range(self, temp_db_with_entries: Path) -> None:
+        """When no entries found, should suggest expanding range."""
+        runner = CliRunner()
+        # Use a fresh empty database
+        os.environ["PENSIEVE_DB"] = str(temp_db_with_entries / "empty.db")
+        db = Database()
+        db.close()
+
+        result = runner.invoke(main, ["journal", "--days", "1", "--all-projects"])
+
+        assert result.exit_code == 0
+        assert "No entries in the last 1 days" in result.output
+        assert "pensieve journal --days 30" in result.output
+
+        # Restore original DB
+        os.environ["PENSIEVE_DB"] = str(temp_db_with_entries / "test_pensieve.db")
+
+    def test_journal_shows_stats_and_focus_areas(self, temp_db_with_entries: Path) -> None:
+        """Journal should show aggregate statistics and focus areas."""
+        runner = CliRunner()
+        result = runner.invoke(main, ["journal", "--all-projects"])
+
+        assert result.exit_code == 0
+        assert "entries" in result.output
+        assert "templates" in result.output
+        assert "unique tags" in result.output
+        # Should show focus areas with tag counts
+        assert "Focus areas:" in result.output
+
+    def test_journal_shows_contextual_hints(self, temp_db_with_entries: Path) -> None:
+        """Journal should show actionable next steps with real values."""
+        runner = CliRunner()
+        result = runner.invoke(main, ["journal", "--all-projects"])
+
+        assert result.exit_code == 0
+        assert "Next steps:" in result.output
+        # Should have pensieve entry show with an actual ID
+        assert "pensieve entry show" in result.output
+        # Should suggest tag search with actual tag
+        assert "pensieve entry search --tag" in result.output
+        # Should suggest template search
+        assert "pensieve entry search --template" in result.output
