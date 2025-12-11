@@ -13,10 +13,14 @@ import click
 
 from pensieve import __version__
 from pensieve.cli_helpers import (
+    AmbiguousEntryError,
+    EntryNotFoundError,
+    InvalidEntryIdError,
     load_entry_from_json,
     load_template_from_json,
     parse_field_definition,
     parse_field_value,
+    resolve_entry_id,
 )
 from pensieve.database import Database, DatabaseError
 from pensieve.graph_traversal import traverse_entry_links
@@ -549,7 +553,16 @@ def entry_list(limit: int, offset: int) -> None:
 @click.option("--follow-links", "-f", is_flag=True, help="Follow and display related entries")
 @click.option("--depth", type=int, default=1, help="Maximum depth for link traversal (default: 1)")
 def entry_show(entry_id: str, follow_links: bool, depth: int) -> None:
-    """Show entry details."""
+    """Show entry details.
+
+    ENTRY_ID can be a full UUID or a short-form ID (minimum 4 characters).
+    Short IDs work if they uniquely match a single entry.
+
+    Examples:
+        pensieve entry show abc12345                    # Short ID (8 chars)
+        pensieve entry show abc12345-6789-...          # Full UUID
+        pensieve entry show abc12345 --follow-links    # Show with related entries
+    """
     # Validate depth
     if depth < 1:
         click.echo("Error: depth must be at least 1", err=True)
@@ -564,16 +577,18 @@ def entry_show(entry_id: str, follow_links: bool, depth: int) -> None:
     db = Database()
 
     try:
+        # Resolve entry ID (supports both full UUID and short-form IDs)
         try:
-            uuid = UUID(entry_id)
-        except ValueError:
-            click.echo("Error: Invalid entry ID format", err=True)
+            e = resolve_entry_id(db, entry_id)
+        except InvalidEntryIdError as err:
+            click.echo(f"Error: {err}", err=True)
             sys.exit(1)
-
-        e = db.get_entry_by_id(uuid)
-
-        if e is None:
-            click.echo(f"Error: Entry '{entry_id}' not found", err=True)
+        except EntryNotFoundError as err:
+            click.echo(f"Error: {err}", err=True)
+            sys.exit(1)
+        except AmbiguousEntryError as err:
+            click.echo(f"Error: {err}", err=True)
+            click.echo("Please provide a longer ID prefix to disambiguate.", err=True)
             sys.exit(1)
 
         template = db.get_template_by_id(e.template_id)
@@ -628,7 +643,7 @@ def entry_show(entry_id: str, follow_links: bool, depth: int) -> None:
 
         if follow_links:
             # Traverse and display related entries
-            related = traverse_entry_links(db, uuid, depth)
+            related = traverse_entry_links(db, e.id, depth)
 
             if related:
                 click.echo("\n" + "━" * 60)
@@ -900,30 +915,34 @@ def entry_search(
 def entry_update_status(entry_id: str, status: str) -> None:
     """Update entry status.
 
+    ENTRY_ID can be a full UUID or a short-form ID (minimum 4 characters).
+
     Examples:
-        pensieve entry update-status abc123 deprecated
-        pensieve entry update-status abc123 superseded
+        pensieve entry update-status abc12345 deprecated
+        pensieve entry update-status abc12345 superseded
     """
     db = Database()
 
     try:
+        # Resolve entry ID (supports both full UUID and short-form IDs)
         try:
-            uuid = UUID(entry_id)
-        except ValueError:
-            click.echo("Error: Invalid entry ID format", err=True)
+            entry = resolve_entry_id(db, entry_id)
+        except InvalidEntryIdError as err:
+            click.echo(f"Error: {err}", err=True)
             sys.exit(1)
-
-        # Verify entry exists
-        entry = db.get_entry_by_id(uuid)
-        if entry is None:
-            click.echo(f"Error: Entry '{entry_id}' not found", err=True)
+        except EntryNotFoundError as err:
+            click.echo(f"Error: {err}", err=True)
+            sys.exit(1)
+        except AmbiguousEntryError as err:
+            click.echo(f"Error: {err}", err=True)
+            click.echo("Please provide a longer ID prefix to disambiguate.", err=True)
             sys.exit(1)
 
         # Update status
         new_status = EntryStatus(status)
-        db.update_entry_status(uuid, new_status)
+        db.update_entry_status(entry.id, new_status)
 
-        click.echo(f"Updated entry {entry_id} status to '{status}'")
+        click.echo(f"Updated entry {entry.id} status to '{status}'")
 
     except DatabaseError as e:
         click.echo(f"Error: {e}", err=True)
@@ -945,19 +964,41 @@ def entry_update_status(entry_id: str, status: str) -> None:
 def entry_link(from_id: str, to_id: str, link_type: str) -> None:
     """Create a link between two entries.
 
+    Both FROM_ID and TO_ID can be full UUIDs or short-form IDs (minimum 4 characters).
+
     Examples:
-        pensieve entry link new-id old-id --type supersedes
-        pensieve entry link entry1 entry2 --type relates_to
+        pensieve entry link abc12345 def67890 --type supersedes
+        pensieve entry link abc12345 def67890 --type relates_to
     """
     db = Database()
 
     try:
-        # Parse UUIDs
+        # Resolve FROM entry ID
         try:
-            from_uuid = UUID(from_id)
-            to_uuid = UUID(to_id)
-        except ValueError:
-            click.echo("Error: Invalid UUID format", err=True)
+            from_entry = resolve_entry_id(db, from_id)
+        except InvalidEntryIdError as err:
+            click.echo(f"Error (from_id): {err}", err=True)
+            sys.exit(1)
+        except EntryNotFoundError as err:
+            click.echo(f"Error: {err}", err=True)
+            sys.exit(1)
+        except AmbiguousEntryError as err:
+            click.echo(f"Error (from_id): {err}", err=True)
+            click.echo("Please provide a longer ID prefix to disambiguate.", err=True)
+            sys.exit(1)
+
+        # Resolve TO entry ID
+        try:
+            to_entry = resolve_entry_id(db, to_id)
+        except InvalidEntryIdError as err:
+            click.echo(f"Error (to_id): {err}", err=True)
+            sys.exit(1)
+        except EntryNotFoundError as err:
+            click.echo(f"Error: {err}", err=True)
+            sys.exit(1)
+        except AmbiguousEntryError as err:
+            click.echo(f"Error (to_id): {err}", err=True)
+            click.echo("Please provide a longer ID prefix to disambiguate.", err=True)
             sys.exit(1)
 
         # Get agent name from environment or use default
@@ -965,15 +1006,15 @@ def entry_link(from_id: str, to_id: str, link_type: str) -> None:
 
         # Create link
         link = EntryLink(
-            source_entry_id=from_uuid,
-            target_entry_id=to_uuid,
+            source_entry_id=from_entry.id,
+            target_entry_id=to_entry.id,
             link_type=LinkType(link_type),
             created_by=agent,
         )
 
         db.create_entry_link(link)
 
-        click.echo(f"Created link: {from_id} --{link_type}--> {to_id}")
+        click.echo(f"Created link: {from_entry.id} --{link_type}--> {to_entry.id}")
 
     except DatabaseError as e:
         click.echo(f"Error: {e}", err=True)
@@ -992,10 +1033,12 @@ def entry_link(from_id: str, to_id: str, link_type: str) -> None:
 def entry_tag(entry_id: str, add_tags: tuple[str, ...], remove_tags: tuple[str, ...]) -> None:
     """Add or remove tags from an entry.
 
+    ENTRY_ID can be a full UUID or a short-form ID (minimum 4 characters).
+
     Examples:
-        pensieve entry tag abc123 --add authentication --add security
-        pensieve entry tag abc123 --remove outdated
-        pensieve entry tag abc123 --add bug-fix --remove workaround
+        pensieve entry tag abc12345 --add authentication --add security
+        pensieve entry tag abc12345 --remove outdated
+        pensieve entry tag abc12345 --add bug-fix --remove workaround
     """
     db = Database()
 
@@ -1005,31 +1048,32 @@ def entry_tag(entry_id: str, add_tags: tuple[str, ...], remove_tags: tuple[str, 
             click.echo("Error: Must specify at least one --add or --remove option", err=True)
             sys.exit(1)
 
-        # Parse UUID
+        # Resolve entry ID (supports both full UUID and short-form IDs)
         try:
-            uuid = UUID(entry_id)
-        except ValueError:
-            click.echo("Error: Invalid entry ID format", err=True)
+            entry = resolve_entry_id(db, entry_id)
+        except InvalidEntryIdError as err:
+            click.echo(f"Error: {err}", err=True)
             sys.exit(1)
-
-        # Verify entry exists
-        entry = db.get_entry_by_id(uuid)
-        if entry is None:
-            click.echo(f"Error: Entry '{entry_id}' not found", err=True)
+        except EntryNotFoundError as err:
+            click.echo(f"Error: {err}", err=True)
+            sys.exit(1)
+        except AmbiguousEntryError as err:
+            click.echo(f"Error: {err}", err=True)
+            click.echo("Please provide a longer ID prefix to disambiguate.", err=True)
             sys.exit(1)
 
         # Add tags
         if add_tags:
-            db.add_entry_tags(uuid, list(add_tags))
+            db.add_entry_tags(entry.id, list(add_tags))
             click.echo(f"Added tags: {', '.join(add_tags)}")
 
         # Remove tags
         if remove_tags:
-            db.remove_entry_tags(uuid, list(remove_tags))
+            db.remove_entry_tags(entry.id, list(remove_tags))
             click.echo(f"Removed tags: {', '.join(remove_tags)}")
 
         # Show current tags
-        updated_entry = db.get_entry_by_id(uuid)
+        updated_entry = db.get_entry_by_id(entry.id)
         if updated_entry and updated_entry.tags:
             click.echo(f"Current tags: {', '.join(updated_entry.tags)}")
         else:
@@ -1385,12 +1429,12 @@ def ref() -> None:
     pass
 
 
-def _get_entry_and_refs(db: Database, entry_id_prefix: str) -> tuple[JournalEntry, str, list[dict]]:
-    """Get entry and its refs field by entry ID prefix.
+def _get_entry_and_refs(db: Database, entry_id: str) -> tuple[JournalEntry, str, list[dict]]:
+    """Get entry and its refs field by entry ID.
 
     Args:
         db: Database connection
-        entry_id_prefix: First 8 characters of entry UUID
+        entry_id: Full UUID or short-form ID (minimum 4 characters)
 
     Returns:
         Tuple of (entry, refs_field_name, refs_list)
@@ -1398,17 +1442,15 @@ def _get_entry_and_refs(db: Database, entry_id_prefix: str) -> tuple[JournalEntr
     Raises:
         click.ClickException: If entry not found or has no refs field
     """
-    # Search for entry by ID prefix
-    entries = db.search_entries_by_id_prefix(entry_id_prefix)
-    if not entries:
-        raise click.ClickException(f"Entry not found: {entry_id_prefix}")
-    if len(entries) > 1:
-        click.echo(f"Multiple entries match '{entry_id_prefix}':", err=True)
-        for e in entries:
-            click.echo(f"  {e.id}", err=True)
-        raise click.ClickException("Please provide a more specific ID prefix")
-
-    entry = entries[0]
+    # Resolve entry ID (supports both full UUID and short-form IDs)
+    try:
+        entry = resolve_entry_id(db, entry_id)
+    except InvalidEntryIdError as err:
+        raise click.ClickException(str(err))
+    except EntryNotFoundError as err:
+        raise click.ClickException(str(err))
+    except AmbiguousEntryError as err:
+        raise click.ClickException(f"{err}\nPlease provide a longer ID prefix to disambiguate.")
 
     # Find the refs field in the entry
     refs_field_name = None
@@ -1436,7 +1478,7 @@ def _get_entry_and_refs(db: Database, entry_id_prefix: str) -> tuple[JournalEntr
 def ref_list(entry_id: str) -> None:
     """List all refs for an entry.
 
-    ENTRY_ID: First 8 characters of the entry UUID
+    ENTRY_ID can be a full UUID or a short-form ID (minimum 4 characters).
     """
     db = Database()
 
@@ -1493,12 +1535,12 @@ def ref_list(entry_id: str) -> None:
 def ref_add(entry_id: str, name: str, locator: str) -> None:
     """Add a ref to an entry.
 
-    ENTRY_ID: First 8 characters of the entry UUID
+    ENTRY_ID can be a full UUID or a short-form ID (minimum 4 characters).
     NAME: Name for the ref (e.g., "impl", "spec", "test")
 
     Examples:
-        pensieve ref add abc123 impl --locator "s=TokenValidator.validate,f=**/auth.py"
-        pensieve ref add abc123 spec --locator "k=doc,f=docs/security.md,h=## Overview"
+        pensieve ref add abc12345 impl --locator "s=TokenValidator.validate,f=**/auth.py"
+        pensieve ref add abc12345 spec --locator "k=doc,f=docs/security.md,h=## Overview"
     """
     db = Database()
 
@@ -1539,7 +1581,7 @@ def ref_add(entry_id: str, name: str, locator: str) -> None:
 def ref_remove(entry_id: str, name: str) -> None:
     """Remove a ref from an entry.
 
-    ENTRY_ID: First 8 characters of the entry UUID
+    ENTRY_ID can be a full UUID or a short-form ID (minimum 4 characters).
     NAME: Name of the ref to remove
     """
     db = Database()
@@ -1572,12 +1614,12 @@ def ref_remove(entry_id: str, name: str) -> None:
 def ref_resolve(entry_id: str, name: str | None, resolve_all: bool) -> None:
     """Resolve ref(s) to file locations.
 
-    ENTRY_ID: First 8 characters of the entry UUID
+    ENTRY_ID can be a full UUID or a short-form ID (minimum 4 characters).
     NAME: Name of specific ref to resolve (optional if --all)
 
     Examples:
-        pensieve ref resolve abc123 impl      # Resolve single ref
-        pensieve ref resolve abc123 --all     # Resolve all refs
+        pensieve ref resolve abc12345 impl      # Resolve single ref
+        pensieve ref resolve abc12345 --all     # Resolve all refs
     """
     if not name and not resolve_all:
         raise click.ClickException("Provide ref NAME or use --all flag")
