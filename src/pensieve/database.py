@@ -6,7 +6,7 @@ import sqlite3
 from datetime import datetime
 from pathlib import Path
 from typing import Any
-from uuid import UUID
+from uuid import UUID, uuid4
 
 from pensieve.migration_runner import MigrationRunner
 from pensieve.models import (
@@ -792,25 +792,29 @@ class Database:
             raise DatabaseError(f"Failed to remove tags: {e}") from e
 
     def get_tag_statistics(self, project: str | None = None) -> list[tuple[str, int]]:
-        """Get tag usage statistics.
+        """Get tag usage statistics from project_tags table.
 
         Args:
             project: Project path filter (None = all projects)
 
         Returns:
             List of (tag_name, entry_count) tuples, sorted by count descending,
-            then alphabetically by tag name
+            then alphabetically by tag name. Includes tags with 0 entries.
         """
         if project is None:
-            # Query all projects
+            # Query all projects - join project_tags with entry usage counts
             cursor = self.conn.execute(
                 """
                 SELECT
-                    json_each.value as tag,
-                    COUNT(*) as entry_count
-                FROM journal_entries
-                JOIN json_each(journal_entries.tags)
-                GROUP BY tag
+                    pt.name as tag,
+                    COUNT(DISTINCT je.id) as entry_count
+                FROM project_tags pt
+                LEFT JOIN journal_entries je ON je.project = pt.project
+                    AND EXISTS (
+                        SELECT 1 FROM json_each(je.tags)
+                        WHERE json_each.value = pt.name
+                    )
+                GROUP BY pt.project, pt.name
                 ORDER BY entry_count DESC, tag ASC
             """
             )
@@ -819,18 +823,100 @@ class Database:
             cursor = self.conn.execute(
                 """
                 SELECT
-                    json_each.value as tag,
-                    COUNT(*) as entry_count
-                FROM journal_entries
-                JOIN json_each(journal_entries.tags)
-                WHERE project = ?
-                GROUP BY tag
+                    pt.name as tag,
+                    COUNT(DISTINCT je.id) as entry_count
+                FROM project_tags pt
+                LEFT JOIN journal_entries je ON je.project = pt.project
+                    AND EXISTS (
+                        SELECT 1 FROM json_each(je.tags)
+                        WHERE json_each.value = pt.name
+                    )
+                WHERE pt.project = ?
+                GROUP BY pt.name
                 ORDER BY entry_count DESC, tag ASC
             """,
                 (project,),
             )
 
         return [(row["tag"], row["entry_count"]) for row in cursor.fetchall()]
+
+    def get_project_tags(self, project: str) -> set[str]:
+        """Get all tags defined for a project.
+
+        Args:
+            project: Project path
+
+        Returns:
+            Set of tag names defined in project_tags table
+        """
+        cursor = self.conn.execute(
+            """
+            SELECT name FROM project_tags WHERE project = ?
+        """,
+            (project,),
+        )
+        return {row["name"] for row in cursor.fetchall()}
+
+    def create_tag(
+        self,
+        project: str,
+        name: str,
+        created_by: str,
+        description: str | None = None,
+    ) -> str:
+        """Create a new tag in the project_tags table.
+
+        Args:
+            project: Project path
+            name: Tag name
+            created_by: Who created the tag
+            description: Optional tag description
+
+        Returns:
+            Tag ID
+
+        Raises:
+            DatabaseError: If tag already exists or insert fails
+        """
+        tag_id = str(uuid4())
+        created_at = datetime.now().isoformat()
+
+        try:
+            self.conn.execute(
+                """
+                INSERT INTO project_tags (id, project, name, created_at, created_by, description)
+                VALUES (?, ?, ?, ?, ?, ?)
+            """,
+                (tag_id, project, name, created_at, created_by, description),
+            )
+            self.conn.commit()
+            return tag_id
+        except sqlite3.IntegrityError as e:
+            self.conn.rollback()
+            if "UNIQUE constraint failed" in str(e):
+                raise DatabaseError(f"Tag '{name}' already exists in project") from e
+            raise DatabaseError(f"Failed to create tag: {e}") from e
+        except Exception as e:
+            self.conn.rollback()
+            raise DatabaseError(f"Failed to create tag: {e}") from e
+
+    def tag_exists(self, project: str, name: str) -> bool:
+        """Check if a tag exists in the project.
+
+        Args:
+            project: Project path
+            name: Tag name
+
+        Returns:
+            True if tag exists, False otherwise
+        """
+        cursor = self.conn.execute(
+            """
+            SELECT 1 FROM project_tags WHERE project = ? AND name = ?
+        """,
+            (project, name),
+        )
+        return cursor.fetchone() is not None
 
     def search_entries_by_id_prefix(self, id_prefix: str) -> list[JournalEntry]:
         """Search for entries by ID prefix.

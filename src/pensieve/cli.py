@@ -47,6 +47,85 @@ from pensieve.ref_resolver import generate_search_hints, resolve_ref
 from pensieve.validators import ValidationError, validate_refs
 
 
+def validate_and_prepare_tags(
+    db: Database,
+    project: str,
+    tag_names: list[str],
+    new_tag_names: list[str],
+) -> list[str]:
+    """Validate tags and create new ones as needed.
+
+    - If no tags exist in project_tags, accept all tags (cold start)
+    - Otherwise, validate --tag values against project_tags
+    - --new-tag values are created in project_tags
+
+    Args:
+        db: Database instance
+        project: Project path
+        tag_names: Tags from --tag (must exist)
+        new_tag_names: Tags from --new-tag (will be created)
+
+    Returns:
+        List of validated tags for the entry
+
+    Raises:
+        click.ClickException: If unknown tags are used with --tag
+    """
+    if not tag_names and not new_tag_names:
+        return []
+
+    project_tags = db.get_project_tags(project)
+    agent = os.environ.get("USER", "unknown")
+
+    # Cold start: no tags in project_tags, accept all
+    if not project_tags:
+        all_tags = sorted(set(tag_names + new_tag_names))
+        for tag in all_tags:
+            db.create_tag(project, tag, agent)
+        return all_tags
+
+    # Validate --tag values against project_tags
+    unknown = [t for t in tag_names if t not in project_tags]
+    if unknown:
+        tag_stats = db.get_tag_statistics(project)
+        error_msg = format_unknown_tag_error(unknown, tag_stats)
+        raise click.ClickException(error_msg)
+
+    # Create --new-tag values in project_tags
+    for tag in new_tag_names:
+        if tag not in project_tags:
+            db.create_tag(project, tag, agent)
+
+    return sorted(set(tag_names + new_tag_names))
+
+
+def format_unknown_tag_error(unknown_tags: list[str], tag_stats: list[tuple[str, int]]) -> str:
+    """Format an error message for unknown tags with available tag list.
+
+    Args:
+        unknown_tags: Tags that were not found
+        tag_stats: List of (tag_name, entry_count) tuples
+
+    Returns:
+        Formatted error message
+    """
+    if len(unknown_tags) == 1:
+        msg = f"Tag '{unknown_tags[0]}' not found.\n\n"
+    else:
+        msg = f"Tags not found: {', '.join(unknown_tags)}\n\n"
+
+    if tag_stats:
+        msg += f"Available tags ({len(tag_stats)}):\n"
+        for tag, count in tag_stats:
+            entry_word = "entry" if count == 1 else "entries"
+            msg += f"  {tag:<20} {count} {entry_word}\n"
+    else:
+        msg += "No tags available. Use --new-tag to create new tags.\n"
+
+    msg += "\nUse --new-tag to create new tags."
+    return msg
+
+
 class AliasedGroup(click.Group):
     """Custom click Group that supports command aliases.
 
@@ -322,7 +401,8 @@ def entry() -> None:
 @click.option("--template", "template_name", required=True, help="Template name")
 @click.option("--project", required=False, help="Project directory path (auto-detected if omitted)")
 @click.option("--field", "fields", multiple=True, help="Field value key=value (repeatable)")
-@click.option("--tag", "tags", multiple=True, help="Tag to add to entry (repeatable)")
+@click.option("--tag", "tags", multiple=True, help="Use existing tag (repeatable)")
+@click.option("--new-tag", "new_tags", multiple=True, help="Create and use new tag (repeatable)")
 @click.option(
     "--ref", "refs", multiple=True, help="Ref in compact format name:k=v,k=v (repeatable)"
 )
@@ -332,6 +412,7 @@ def entry_create(
     project: str | None,
     fields: tuple[str, ...],
     tags: tuple[str, ...],
+    new_tags: tuple[str, ...],
     refs: tuple[str, ...],
     file_path: str | None,
 ) -> None:
@@ -350,6 +431,16 @@ def entry_create(
     2. From JSON file:
        pensieve entry create --template problem_solved --from-file entry.json
 
+    Adding tags:
+       pensieve entry create --template problem_solved \\
+         --tag authentication --tag oauth \\
+         --field problem="..."
+
+    Creating new tags:
+       pensieve entry create --template problem_solved \\
+         --tag oauth --new-tag authn \\
+         --field problem="..."
+
     Adding refs:
        pensieve entry create --template decision \\
          --field title="JWT validation" \\
@@ -358,10 +449,6 @@ def entry_create(
 
     Override project:
        pensieve entry create --template problem_solved --project /custom/path --field "..."
-
-    IMPORTANT: Tags cannot be added during creation. Add them after:
-       1. pensieve tag list                          # Check existing tags
-       2. pensieve entry tag <entry-id> --add <tag>  # Add tags to entry
     """
     db = Database()
 
@@ -375,30 +462,10 @@ def entry_create(
         if warning:
             click.echo(warning, err=True)
 
-        # Validate that tags are not provided during creation
-        if tags:
-            click.echo("❌ Error: Cannot use --tag during entry creation.\n", err=True)
-            click.echo("📋 Proper workflow for adding tags:\n", err=True)
-            click.echo("  1. Check existing tags:  pensieve tag list", err=True)
-            click.echo(
-                "  2. Create entry:         pensieve entry create --template <name> --field ...",
-                err=True,
-            )
-            click.echo(
-                "  3. Add tags after:       pensieve entry tag <entry-id> --add <tag>\n", err=True
-            )
-            click.echo(
-                "💡 Why: This workflow encourages tag reuse and prevents tag proliferation.",
-                err=True,
-            )
-            click.echo(
-                "   Checking existing tags helps you use canonical tags vs creating duplicates.",
-                err=True,
-            )
-            click.echo(
-                "   If no suitable tag exists, you can create a new one in step 3.\n", err=True
-            )
-            sys.exit(1)
+        # Validate and prepare tags
+        validated_tags = validate_and_prepare_tags(
+            db, normalized_project, list(tags), list(new_tags)
+        )
 
         # Validate mutual exclusivity
         if file_path and fields:
@@ -482,24 +549,23 @@ def entry_create(
         # Get agent name from environment or use default
         agent = os.environ.get("USER", "unknown")
 
-        # Create entry (without tags - they must be added after creation)
+        # Create entry with validated tags
         entry = JournalEntry(
             template_id=template.id,
             template_version=template.version,
             agent=agent,
             project=normalized_project,
             field_values=field_values,
-            tags=[],
+            tags=validated_tags,
         )
 
         db.create_entry(entry, template)
         click.echo(f"\n✓ Created entry: {entry.id}")
         click.echo(f"  Template: {template_name}")
         click.echo(f"  Project: {expand_project_path(entry.project)}")
-        click.echo("\n💡 Next steps:")
-        click.echo("  1. Check existing tags:     pensieve tag list")
-        click.echo(f"  2. Add tags to this entry:  pensieve entry tag {entry.id} --add <tag>")
-        click.echo("\n💡 Other management options:")
+        if validated_tags:
+            click.echo(f"  Tags: {', '.join(validated_tags)}")
+        click.echo("\n💡 Management options:")
         click.echo(
             f"  • Link to related entries:  pensieve entry link {entry.id} <other-id> --type <type>"
         )
@@ -1151,6 +1217,56 @@ def tag_list(all_projects: bool, project: str | None) -> None:
             plural = "entry" if count == 1 else "entries"
             click.echo(f"{tag:<{max_tag_len}}  {count} {plural}")
 
+    finally:
+        db.close()
+
+
+@tag.command("create")
+@click.argument("names", nargs=-1, required=True)
+@click.option("--project", help="Override project path (default: auto-detect from git or cwd)")
+@click.option("--description", "-d", help="Tag description")
+def tag_create(names: tuple[str, ...], project: str | None, description: str | None) -> None:
+    """Pre-create tags without attaching to an entry.
+
+    Use this to create tags before using them with 'entry create --tag'.
+
+    Examples:
+        pensieve tag create authentication oauth
+        pensieve tag create -d "Production issues" production-bug
+    """
+    db = Database()
+
+    try:
+        # Auto-detect project if not provided
+        if project is None:
+            project_path = auto_detect_project()
+        else:
+            project_path = str(expand_project_path(project))
+        project_path = normalize_project_search(project_path)
+
+        agent = os.environ.get("USER", "unknown")
+        created_tags = []
+        skipped_tags = []
+
+        for name in names:
+            if db.tag_exists(project_path, name):
+                skipped_tags.append(name)
+            else:
+                db.create_tag(project_path, name, agent, description)
+                created_tags.append(name)
+
+        # Report results
+        if created_tags:
+            click.echo(f"✓ Created tags: {', '.join(created_tags)}")
+        if skipped_tags:
+            click.echo(f"  (skipped existing: {', '.join(skipped_tags)})")
+
+        if not created_tags and not skipped_tags:
+            click.echo("No tags to create.")
+
+    except DatabaseError as e:
+        click.echo(f"Error: {e}", err=True)
+        sys.exit(1)
     finally:
         db.close()
 

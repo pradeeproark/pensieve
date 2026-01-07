@@ -119,8 +119,8 @@ class TestEntryCreate:
         assert result.exit_code != 0
         assert "Error: Missing required fields: title" in result.output
 
-    def test_create_with_tag_option_fails(self, temp_db: Path) -> None:
-        """Test that --tag option during creation fails with helpful workflow guidance."""
+    def test_create_with_tag_option_works_on_cold_start(self, temp_db: Path) -> None:
+        """Test that --tag option works on cold start (no existing tags)."""
         runner = CliRunner()
         result = runner.invoke(
             main,
@@ -136,17 +136,12 @@ class TestEntryCreate:
             ],
         )
 
-        assert result.exit_code != 0
-        assert "❌ Error: Cannot use --tag during entry creation" in result.output
-        assert "📋 Proper workflow for adding tags:" in result.output
-        assert "1. Check existing tags:  pensieve tag list" in result.output
-        assert "2. Create entry:" in result.output
-        assert "3. Add tags after:       pensieve entry tag <entry-id> --add <tag>" in result.output
-        assert "prevents tag proliferation" in result.output
-        assert "If no suitable tag exists, you can create a new one" in result.output
+        assert result.exit_code == 0
+        assert "Created entry:" in result.output
+        assert "Tags: test" in result.output
 
-    def test_create_with_multiple_tags_fails(self, temp_db: Path) -> None:
-        """Test that multiple --tag options during creation fails."""
+    def test_create_with_multiple_tags_works_on_cold_start(self, temp_db: Path) -> None:
+        """Test that multiple --tag options work on cold start."""
         runner = CliRunner()
         result = runner.invoke(
             main,
@@ -164,8 +159,89 @@ class TestEntryCreate:
             ],
         )
 
+        assert result.exit_code == 0
+        assert "Created entry:" in result.output
+        assert "Tags: cli, test" in result.output  # sorted alphabetically
+
+    def test_create_with_unknown_tag_fails(self, temp_db: Path) -> None:
+        """Test that using unknown tag fails when tags exist."""
+        runner = CliRunner()
+
+        # First create an entry with a tag to establish existing tags
+        runner.invoke(
+            main,
+            [
+                "entry",
+                "create",
+                "--template",
+                "test_template",
+                "--field",
+                "title=First Entry",
+                "--tag",
+                "existing-tag",
+            ],
+        )
+
+        # Now try to use a non-existent tag
+        result = runner.invoke(
+            main,
+            [
+                "entry",
+                "create",
+                "--template",
+                "test_template",
+                "--field",
+                "title=Second Entry",
+                "--tag",
+                "unknown-tag",
+            ],
+        )
+
         assert result.exit_code != 0
-        assert "❌ Error: Cannot use --tag during entry creation" in result.output
+        assert "Tag 'unknown-tag' not found" in result.output
+        assert "Available tags" in result.output
+        assert "existing-tag" in result.output
+        assert "--new-tag" in result.output
+
+    def test_create_with_new_tag_option(self, temp_db: Path) -> None:
+        """Test that --new-tag creates new tags."""
+        runner = CliRunner()
+
+        # Create first entry with existing tag
+        runner.invoke(
+            main,
+            [
+                "entry",
+                "create",
+                "--template",
+                "test_template",
+                "--field",
+                "title=First Entry",
+                "--tag",
+                "existing-tag",
+            ],
+        )
+
+        # Create second entry using existing tag and creating new one
+        result = runner.invoke(
+            main,
+            [
+                "entry",
+                "create",
+                "--template",
+                "test_template",
+                "--field",
+                "title=Second Entry",
+                "--tag",
+                "existing-tag",
+                "--new-tag",
+                "new-tag",
+            ],
+        )
+
+        assert result.exit_code == 0
+        assert "Created entry:" in result.output
+        assert "Tags: existing-tag, new-tag" in result.output
 
 
 class TestEntrySearch:
