@@ -12,11 +12,11 @@
 class Pensieve < Formula
   desc "Memory recording tool for Claude Code agents"
   homepage "https://github.com/pradeeproark/pensieve"
-  version "0.6.0"
+  version "0.7.0"
 
   # Download pre-built binary from GitHub Releases
-  url "https://github.com/pradeeproark/pensieve/releases/download/v0.6.0/pensieve-0.6.0-macos"
-  sha256 "726f3446d2719ba8e4abb41dc52738583c49390373a50991f5a018dcea14ab2b"
+  url "https://github.com/pradeeproark/pensieve/releases/download/v0.7.0/pensieve-0.6.0-macos"
+  sha256 "6a41ce962329fdcfcc91e11c91211d3b898efe7bac22e84d2ad87c4e445c7c70"
 
   # No dependencies - it's a self-contained binary
 
