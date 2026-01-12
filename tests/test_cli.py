@@ -347,13 +347,18 @@ def temp_db_with_entries(tmp_path: Path):
 
     # Create entries at different times
     now = datetime.now()
+    project_path = str(tmp_path)
+
+    # Register tags in project_tags (required for get_tag_statistics)
+    for tag_name in ["recent", "test", "older", "old"]:
+        db.create_tag(project_path, tag_name, "test_user")
 
     # Entry from today
     entry1 = JournalEntry(
         template_id=template.id,
         template_version=1,
         agent="test_user",
-        project=str(tmp_path),
+        project=project_path,
         field_values={"summary": "Recent entry from today"},
         tags=["recent", "test"],
     )
@@ -364,7 +369,7 @@ def temp_db_with_entries(tmp_path: Path):
         template_id=template.id,
         template_version=1,
         agent="test_user",
-        project=str(tmp_path),
+        project=project_path,
         field_values={"summary": "Entry from 5 days ago"},
         tags=["older", "test"],
     )
@@ -380,7 +385,7 @@ def temp_db_with_entries(tmp_path: Path):
         template_id=template.id,
         template_version=1,
         agent="test_user",
-        project=str(tmp_path),
+        project=project_path,
         field_values={"summary": "Old entry from 20 days ago"},
         tags=["old"],
     )
@@ -488,3 +493,66 @@ class TestJournal:
         assert "pensieve entry search --tag" in result.output
         # Should suggest template search
         assert "pensieve entry search --template" in result.output
+
+
+class TestJournalLandscape:
+    """Tests for new landscape journal view."""
+
+    def test_journal_landscape_shows_header(self, temp_db_with_entries: Path) -> None:
+        """Landscape journal shows header with totals."""
+        runner = CliRunner()
+        result = runner.invoke(main, ["journal", "--landscape", "--all-projects"])
+
+        assert result.exit_code == 0
+        assert "PENSIEVE LANDSCAPE" in result.output
+
+    def test_journal_landscape_shows_legend(self, temp_db_with_entries: Path) -> None:
+        """Landscape journal shows heatmap legend."""
+        runner = CliRunner()
+        result = runner.invoke(main, ["journal", "--landscape", "--all-projects"])
+
+        assert result.exit_code == 0
+        # Should have intensity legend
+        assert "HIGH" in result.output or "██" in result.output
+        # Should have recency indicators
+        assert "hot" in result.output or "●" in result.output
+
+    def test_journal_landscape_shows_zoom_guidance(self, temp_db_with_entries: Path) -> None:
+        """Landscape journal shows zoom guidance."""
+        runner = CliRunner()
+        result = runner.invoke(main, ["journal", "--landscape", "--all-projects"])
+
+        assert result.exit_code == 0
+        # Should show zoom guidance
+        assert "ZOOM" in result.output or "journal --tag" in result.output
+
+    def test_journal_landscape_weeks_flag(self, temp_db_with_entries: Path) -> None:
+        """--weeks flag controls landscape lookback period."""
+        runner = CliRunner()
+        result = runner.invoke(main, ["journal", "--landscape", "--weeks", "4", "--all-projects"])
+
+        assert result.exit_code == 0
+        # Should render without errors with fewer weeks
+        assert "PENSIEVE" in result.output
+
+    def test_journal_landscape_tag_zoom(self, temp_db_with_entries: Path) -> None:
+        """--tag flag shows cluster zoom view."""
+        runner = CliRunner()
+        result = runner.invoke(
+            main, ["journal", "--landscape", "--tag", "recent", "--all-projects"]
+        )
+
+        assert result.exit_code == 0
+        # Should show cluster header
+        assert "CLUSTER" in result.output
+        # Should show recent entries
+        assert "RECENT ENTRIES" in result.output or "ENTRIES:" in result.output
+
+    def test_journal_landscape_empty_project(self, temp_db: Path) -> None:
+        """Landscape handles empty project gracefully."""
+        runner = CliRunner()
+        result = runner.invoke(main, ["journal", "--landscape", "--all-projects"])
+
+        assert result.exit_code == 0
+        # Should show empty state without crashing
+        assert "PENSIEVE" in result.output or "0e" in result.output

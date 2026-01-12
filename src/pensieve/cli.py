@@ -1411,16 +1411,36 @@ def _get_entry_summary(entry: JournalEntry, template, max_len: int = 50) -> str:
     is_flag=True,
     help="Include all projects (default: current project only)",
 )
-def journal(days: int, all_projects: bool) -> None:
+@click.option(
+    "--landscape",
+    is_flag=True,
+    help="Show heatmap landscape view of tag activity over time",
+)
+@click.option(
+    "--weeks",
+    default=8,
+    type=int,
+    help="Number of weeks for landscape view (default: 8)",
+)
+@click.option(
+    "--tag",
+    type=str,
+    help="Zoom into a specific tag cluster (use with --landscape)",
+)
+def journal(days: int, all_projects: bool, landscape: bool, weeks: int, tag: str | None) -> None:
     """Show project journal with recent activity summary.
 
     Displays a timeline of recent entries with aggregated statistics,
     helping you quickly understand what's been happening in a project.
 
+    Use --landscape for a heatmap view of tag activity across time.
+    Use --landscape --tag <tag> to zoom into a specific cluster.
+
     Examples:
         pensieve journal              # Last 14 days, current project
         pensieve journal --days 30    # Last 30 days
-        pensieve journal --days 7 --all-projects  # Last week, all projects
+        pensieve journal --landscape  # Heatmap landscape view
+        pensieve journal --landscape --tag auth  # Zoom into auth cluster
     """
     # Validate --days
     if days < 1:
@@ -1439,7 +1459,58 @@ def journal(days: int, all_projects: bool) -> None:
             project = normalize_project_search(project)
             project_display = expand_project_path(project)
 
-        # Calculate date range
+        # Landscape view branch
+        if landscape:
+            from pensieve.landscape import (
+                ClusterRenderer,
+                EntryPreview,
+                LandscapeBuilder,
+                LandscapeRenderer,
+            )
+
+            builder = LandscapeBuilder(db, weeks_back=weeks)
+            data = builder.build(project=project)
+
+            if tag:
+                # Cluster zoom view
+                tag_activity = next((t for t in data.tags if t.name == tag), None)
+                if not tag_activity:
+                    click.echo(f"Error: Tag '{tag}' not found in project.", err=True)
+                    if data.tags:
+                        available = ", ".join(t.name for t in data.tags[:10])
+                        click.echo(f"Available tags: {available}", err=True)
+                    sys.exit(1)
+
+                # Get recent entries for this tag
+                query = QueryBuilder(db)
+                query.by_tags([tag])
+                if project:
+                    query.by_project(project)
+                entries = query.execute(limit=10)
+
+                recent_entries = []
+                for entry in entries:
+                    template = db.get_template_by_id(entry.template_id)
+                    summary = _get_entry_summary(entry, template, max_len=40)
+                    days_ago = (datetime.now() - entry.timestamp).days
+                    recent_entries.append(
+                        EntryPreview(
+                            entry_id=str(entry.id)[:8],
+                            summary=summary,
+                            days_ago=days_ago,
+                        )
+                    )
+
+                renderer = ClusterRenderer(tag_activity, weeks_back=weeks)
+                click.echo(renderer.render(recent_entries=recent_entries))
+            else:
+                # Full landscape view
+                renderer = LandscapeRenderer(data)
+                click.echo(renderer.render())
+
+            return
+
+        # Calculate date range (original timeline view)
         from_date = datetime.now() - timedelta(days=days)
         to_date = datetime.now()
 

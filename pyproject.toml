@@ -1,6 +1,6 @@
 [project]
 name = "pensieve"
-version = "0.7.0"
+version = "0.8.0"
 description = "Memory recording tool for Claude Code agents"
 readme = "README.md"
 requires-python = ">=3.11"
