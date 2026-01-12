@@ -12,7 +12,7 @@
 class Pensieve < Formula
   desc "Memory recording tool for Claude Code agents"
   homepage "https://github.com/pradeeproark/pensieve"
-  version "0.8.0"
+  version "0.9.0"
 
   # Download pre-built binary from GitHub Releases
   # TODO: Update SHA256 after release workflow completes

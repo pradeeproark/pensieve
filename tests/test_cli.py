@@ -407,109 +407,20 @@ def temp_db_with_entries(tmp_path: Path):
 
 
 class TestJournal:
-    """Tests for journal command."""
+    """Tests for journal command (landscape view)."""
 
-    def test_journal_shows_entries_in_date_range(self, temp_db_with_entries: Path) -> None:
-        """Journal should show entries within the default 14-day range."""
-        runner = CliRunner()
-        # Use --all-projects since test entries have different project path
-        result = runner.invoke(main, ["journal", "--all-projects"])
-
-        assert result.exit_code == 0
-        assert "Project Journal:" in result.output
-        assert "Recent entry from today" in result.output
-        assert "Entry from 5 days ago" in result.output
-        # Entry from 20 days ago should NOT appear (outside 14-day default)
-        assert "Old entry from 20 days ago" not in result.output
-
-    def test_journal_days_flag_expands_range(self, temp_db_with_entries: Path) -> None:
-        """--days flag should include older entries."""
-        runner = CliRunner()
-        result = runner.invoke(main, ["journal", "--days", "30", "--all-projects"])
-
-        assert result.exit_code == 0
-        assert "Last 30 days" in result.output
-        # Now should include the 20-day-old entry
-        assert "Old entry from 20 days ago" in result.output
-
-    def test_journal_days_flag_narrows_range(self, temp_db_with_entries: Path) -> None:
-        """--days 3 should exclude 5-day-old entry."""
-        runner = CliRunner()
-        result = runner.invoke(main, ["journal", "--days", "3", "--all-projects"])
-
-        assert result.exit_code == 0
-        assert "Last 3 days" in result.output
-        assert "Recent entry from today" in result.output
-        # 5-day-old entry should NOT appear
-        assert "Entry from 5 days ago" not in result.output
-
-    def test_journal_invalid_days_fails(self, temp_db_with_entries: Path) -> None:
-        """--days 0 or negative should fail with helpful error."""
-        runner = CliRunner()
-        result = runner.invoke(main, ["journal", "--days", "0"])
-
-        assert result.exit_code == 1
-        assert "must be a positive integer" in result.output
-
-    def test_journal_empty_result_suggests_longer_range(self, temp_db_with_entries: Path) -> None:
-        """When no entries found, should suggest expanding range."""
-        runner = CliRunner()
-        # Use a fresh empty database
-        os.environ["PENSIEVE_DB"] = str(temp_db_with_entries / "empty.db")
-        db = Database()
-        db.close()
-
-        result = runner.invoke(main, ["journal", "--days", "1", "--all-projects"])
-
-        assert result.exit_code == 0
-        assert "No entries in the last 1 days" in result.output
-        assert "pensieve journal --days 30" in result.output
-
-        # Restore original DB
-        os.environ["PENSIEVE_DB"] = str(temp_db_with_entries / "test_pensieve.db")
-
-    def test_journal_shows_stats_and_focus_areas(self, temp_db_with_entries: Path) -> None:
-        """Journal should show aggregate statistics and focus areas."""
+    def test_journal_shows_header(self, temp_db_with_entries: Path) -> None:
+        """Journal shows header with totals."""
         runner = CliRunner()
         result = runner.invoke(main, ["journal", "--all-projects"])
-
-        assert result.exit_code == 0
-        assert "entries" in result.output
-        assert "templates" in result.output
-        assert "unique tags" in result.output
-        # Should show focus areas with tag counts
-        assert "Focus areas:" in result.output
-
-    def test_journal_shows_contextual_hints(self, temp_db_with_entries: Path) -> None:
-        """Journal should show actionable next steps with real values."""
-        runner = CliRunner()
-        result = runner.invoke(main, ["journal", "--all-projects"])
-
-        assert result.exit_code == 0
-        assert "Next steps:" in result.output
-        # Should have pensieve entry show with an actual ID
-        assert "pensieve entry show" in result.output
-        # Should suggest tag search with actual tag
-        assert "pensieve entry search --tag" in result.output
-        # Should suggest template search
-        assert "pensieve entry search --template" in result.output
-
-
-class TestJournalLandscape:
-    """Tests for new landscape journal view."""
-
-    def test_journal_landscape_shows_header(self, temp_db_with_entries: Path) -> None:
-        """Landscape journal shows header with totals."""
-        runner = CliRunner()
-        result = runner.invoke(main, ["journal", "--landscape", "--all-projects"])
 
         assert result.exit_code == 0
         assert "PENSIEVE LANDSCAPE" in result.output
 
-    def test_journal_landscape_shows_legend(self, temp_db_with_entries: Path) -> None:
-        """Landscape journal shows heatmap legend."""
+    def test_journal_shows_legend(self, temp_db_with_entries: Path) -> None:
+        """Journal shows heatmap legend."""
         runner = CliRunner()
-        result = runner.invoke(main, ["journal", "--landscape", "--all-projects"])
+        result = runner.invoke(main, ["journal", "--all-projects"])
 
         assert result.exit_code == 0
         # Should have intensity legend
@@ -517,30 +428,28 @@ class TestJournalLandscape:
         # Should have recency indicators
         assert "hot" in result.output or "●" in result.output
 
-    def test_journal_landscape_shows_zoom_guidance(self, temp_db_with_entries: Path) -> None:
-        """Landscape journal shows zoom guidance."""
+    def test_journal_shows_zoom_guidance(self, temp_db_with_entries: Path) -> None:
+        """Journal shows zoom guidance."""
         runner = CliRunner()
-        result = runner.invoke(main, ["journal", "--landscape", "--all-projects"])
+        result = runner.invoke(main, ["journal", "--all-projects"])
 
         assert result.exit_code == 0
         # Should show zoom guidance
         assert "ZOOM" in result.output or "journal --tag" in result.output
 
-    def test_journal_landscape_weeks_flag(self, temp_db_with_entries: Path) -> None:
-        """--weeks flag controls landscape lookback period."""
+    def test_journal_weeks_flag(self, temp_db_with_entries: Path) -> None:
+        """--weeks flag controls lookback period."""
         runner = CliRunner()
-        result = runner.invoke(main, ["journal", "--landscape", "--weeks", "4", "--all-projects"])
+        result = runner.invoke(main, ["journal", "--weeks", "4", "--all-projects"])
 
         assert result.exit_code == 0
         # Should render without errors with fewer weeks
         assert "PENSIEVE" in result.output
 
-    def test_journal_landscape_tag_zoom(self, temp_db_with_entries: Path) -> None:
+    def test_journal_tag_zoom(self, temp_db_with_entries: Path) -> None:
         """--tag flag shows cluster zoom view."""
         runner = CliRunner()
-        result = runner.invoke(
-            main, ["journal", "--landscape", "--tag", "recent", "--all-projects"]
-        )
+        result = runner.invoke(main, ["journal", "--tag", "recent", "--all-projects"])
 
         assert result.exit_code == 0
         # Should show cluster header
@@ -548,10 +457,10 @@ class TestJournalLandscape:
         # Should show recent entries
         assert "RECENT ENTRIES" in result.output or "ENTRIES:" in result.output
 
-    def test_journal_landscape_empty_project(self, temp_db: Path) -> None:
-        """Landscape handles empty project gracefully."""
+    def test_journal_empty_project(self, temp_db: Path) -> None:
+        """Journal handles empty project gracefully."""
         runner = CliRunner()
-        result = runner.invoke(main, ["journal", "--landscape", "--all-projects"])
+        result = runner.invoke(main, ["journal", "--all-projects"])
 
         assert result.exit_code == 0
         # Should show empty state without crashing
