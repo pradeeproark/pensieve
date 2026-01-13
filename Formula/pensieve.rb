@@ -15,15 +15,14 @@ class Pensieve < Formula
   version "0.9.0"
 
   # Download pre-built binary from GitHub Releases
-  # TODO: Update SHA256 after release workflow completes
-  url "https://github.com/pradeeproark/pensieve/releases/download/v0.8.0/pensieve-0.8.0-macos"
-  sha256 "TODO_UPDATE_AFTER_RELEASE_BUILD"
+  url "https://github.com/pradeeproark/pensieve/releases/download/v0.9.0/pensieve-0.6.0-macos"
+  sha256 "654c7eba9431d8cc5bc6b30e1a783524a04ed3799a15bc07937623b66560d98f"
 
   # No dependencies - it's a self-contained binary
 
   def install
     # Rename the downloaded file to 'pensieve' and install to bin
-    bin.install "pensieve-0.8.0-macos" => "pensieve"
+    bin.install "pensieve-0.6.0-macos" => "pensieve"
   end
 
   test do
