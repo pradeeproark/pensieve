@@ -16,7 +16,7 @@ class Pensieve < Formula
 
   # Download pre-built binary from GitHub Releases
   url "https://github.com/pradeeproark/pensieve/releases/download/v0.9.5/pensieve-0.9.5-macos"
-  sha256 "9a2c52b75e83767b1f1f15b36f32d49ec3930190c72f69bb9ad28634b68f29b2"
+  sha256 "666c3884f343163bc8ea67b862328f485c0159f96e1dafaa6248b5d420ce4a28"
 
   # No dependencies - it's a self-contained binary
 
