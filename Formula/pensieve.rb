@@ -22,7 +22,7 @@ class Pensieve < Formula
 
   def install
     # Rename the downloaded file to 'pensieve' and install to bin
-    bin.install "pensieve-0.6.0-macos" => "pensieve"
+    bin.install "pensieve-#{version}-macos" => "pensieve"
   end
 
   test do
